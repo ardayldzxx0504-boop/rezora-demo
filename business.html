@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İşletme Detayı — Rezora</title>
+  <meta name="description" content="İşletme detayları, hizmetler, müsait tarih ve saatler, müşteri yorumları ve online rezervasyon.">
+  <link rel="icon" href="assets/img/rezora-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/gate.js"></script>
+</head>
+<body>
+  <main>
+    <section class="container" style="padding-top:24px">
+      <div class="breadcrumb">
+        <a href="index.html">Ana sayfa</a> <span>›</span>
+        <a href="businesses.html">İşletmeler</a> <span>›</span>
+        <span id="bcName"></span>
+      </div>
+    </section>
+
+    <!-- Gallery -->
+    <section class="container">
+      <div class="gallery" id="gallery"></div>
+    </section>
+
+    <!-- Header -->
+    <section class="container" style="padding:26px 0 0">
+      <div class="flex items-center justify-between flex-wrap gap-16">
+        <div>
+          <div class="flex items-center gap-12 flex-wrap" style="margin-bottom:10px">
+            <span class="badge badge-purple" id="hCat"></span>
+            <span class="badge badge-green"><span class="dot"></span> Şu an açık</span>
+          </div>
+          <h1 id="hName" style="font-size:clamp(2rem,4vw,2.6rem)"></h1>
+          <div class="flex items-center gap-16 flex-wrap" style="margin-top:12px">
+            <span class="rating" id="hRating"></span>
+            <span class="biz-meta" id="hLoc"></span>
+          </div>
+        </div>
+        <div class="flex gap-12">
+          <button class="btn btn-ghost" onclick="toast('Favorilere eklendi','ok')">♡ Kaydet</button>
+          <button class="btn btn-ghost" onclick="toast('Bağlantı kopyalandı','ok')">↗ Paylaş</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Detail grid -->
+    <section class="container section" style="padding-top:30px">
+      <div class="detail-grid">
+        <!-- LEFT -->
+        <div>
+          <div class="detail-section" style="border-top:none;padding-top:0">
+            <h3>Hakkında</h3>
+            <p class="muted" id="hDesc" style="font-size:1.05rem;line-height:1.7"></p>
+            <div class="grid gap-12" style="grid-template-columns:repeat(2,1fr);margin-top:18px" id="infoRows"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Hizmetler</h3>
+            <p class="muted" style="margin-bottom:16px">Bir hizmet seç, sağ taraftan tarih ve saatini ayarla.</p>
+            <div class="svc-list" id="svcList"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Müsait Tarihler</h3>
+            <div class="date-row" id="dateRow" style="margin-top:6px"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>Müsait Saatler</h3>
+            <p class="muted" id="timeHint" style="margin-bottom:14px">Önce bir tarih seçin.</p>
+            <div class="time-row" id="timeRow"></div>
+          </div>
+
+          <div class="detail-section" style="border-bottom:none">
+            <div class="flex items-center justify-between" style="margin-bottom:8px">
+              <h3>Müşteri Yorumları</h3>
+              <span class="rating" id="rvSummary"></span>
+            </div>
+            <div id="reviews"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT sticky -->
+        <div>
+          <div class="sticky-card">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="muted" style="font-size:.85rem">Başlangıç fiyatı</div>
+                <div style="font-family:var(--font-head);font-weight:800;font-size:1.6rem" id="cardPrice"></div>
+              </div>
+              <span class="rating" id="cardRating"></span>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--gray-200)">
+            <div class="summary-box" style="background:var(--gray-50);border-color:var(--gray-200)">
+              <div class="summary-row"><span class="k">Hizmet</span><span class="v" id="sumSvc">—</span></div>
+              <div class="summary-row"><span class="k">Tarih</span><span class="v" id="sumDate">—</span></div>
+              <div class="summary-row"><span class="k">Saat</span><span class="v" id="sumTime">—</span></div>
+            </div>
+            <button class="btn btn-primary btn-block btn-lg" id="continueBtn" disabled>Rezervasyona devam et</button>
+            <p class="muted center" style="font-size:.82rem">Ödeme yok · Onay WhatsApp & SMS ile</p>
+            <div class="flex items-center gap-8" style="justify-content:center;color:var(--gray-500);font-size:.82rem">
+              <span style="color:var(--purple-600)">✓</span> Anında onay · Ücretsiz iptal
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initLayout("detail");
+
+    const b = REZORA.findBusiness(qparam("id") || "elite-barber");
+    const sel = { service: null, date: null, time: null };
+
+    document.title = b.name + " — Rezora";
+    document.getElementById("bcName").textContent = b.name;
+    document.getElementById("hName").textContent = b.name;
+    document.getElementById("hCat").textContent = b.categoryName;
+    document.getElementById("hRating").innerHTML = `<span class="stars">★</span> ${b.rating} <span class="count">(${b.reviews} değerlendirme)</span>`;
+    document.getElementById("hLoc").innerHTML = `${ICON.pin} ${b.city} · ${b.area||""}`;
+    document.getElementById("hDesc").textContent = b.desc;
+    document.getElementById("cardPrice").textContent = money((b.services||[{price:b.price}])[0].price);
+    document.getElementById("cardRating").innerHTML = `<span class="stars">★</span> ${b.rating}`;
+
+    // gallery
+    const gimgs = (b.gallery && b.gallery.length ? b.gallery : [b.img,b.img,b.img,b.img,b.img]);
+    document.getElementById("gallery").innerHTML = gimgs.slice(0,5).map((g,i)=>
+      `<div class="g g${i}" style="${imgStyle(g, i===0?900:500)}"></div>`).join("");
+
+    // info rows
+    const info = [
+      {ic:"clock", t:"Çalışma saatleri", v:b.open || "Pzt - Cmt · 10:00 - 20:00"},
+      {ic:"pin", t:"Konum", v:`${b.area||''}, ${b.city}`},
+      {ic:"phone", t:"Telefon", v:"+90 533 000 00 00"},
+      {ic:"shield", t:"Doğrulanmış işletme", v:"Rezora Onaylı ✓"},
+    ];
+    document.getElementById("infoRows").innerHTML = info.map(r=>`
+      <div class="info-row">${ICON[r.ic]}<div><div class="ir-t">${r.t}</div><div class="ir-v">${r.v}</div></div></div>`).join("");
+
+    // services
+    const services = b.services || [
+      {id:"std", name:b.categoryName+" Hizmeti", dur:"30 dk", price:b.price, desc:"Standart hizmet"},
+    ];
+    function renderServices(){
+      document.getElementById("svcList").innerHTML = services.map(s=>`
+        <div class="svc-item ${sel.service===s.id?'selected':''}" data-svc="${s.id}">
+          <div>
+            <div class="svc-name">${s.name} ${s.popular?'<span class="badge badge-purple" style="margin-left:6px">En popüler</span>':''}</div>
+            <div class="svc-dur">⏱ ${s.dur} · ${s.desc||''}</div>
+          </div>
+          <div class="svc-price">${money(s.price)}</div>
+        </div>`).join("");
+      document.querySelectorAll(".svc-item").forEach(el=>el.addEventListener("click",()=>{
+        sel.service = el.dataset.svc; renderServices(); updateSummary();
+      }));
+    }
+    renderServices();
+
+    // dates
+    const dates = genDates(14);
+    document.getElementById("dateRow").innerHTML = dates.map(d=>`
+      <button class="date-pill ${d.disabled?'disabled':''}" data-date="${d.key}" ${d.disabled?'disabled':''}>
+        <div class="dp-day">${d.day}</div>
+        <div class="dp-num">${d.num}</div>
+        <div class="dp-mon">${d.mon}</div>
+      </button>`).join("");
+    document.querySelectorAll(".date-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
+      sel.date = el.dataset.date; sel.time = null;
+      document.querySelectorAll(".date-pill").forEach(p=>p.classList.remove("active"));
+      el.classList.add("active");
+      renderTimes(); updateSummary();
+    }));
+
+    // times
+    const hours = b.hours || ["10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00"];
+    const booked = b.booked || [];
+    function renderTimes(){
+      document.getElementById("timeHint").textContent = sel.date ? `${sel.date} için müsait saatler:` : "Önce bir tarih seçin.";
+      document.getElementById("timeRow").innerHTML = hours.map(h=>{
+        const isBooked = booked.includes(h);
+        return `<button class="time-pill ${isBooked?'disabled':''} ${sel.time===h?'active':''}" data-time="${h}" ${(!sel.date||isBooked)?'disabled':''}>${h}</button>`;
+      }).join("");
+      document.querySelectorAll(".time-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
+        sel.time = el.dataset.time;
+        document.querySelectorAll(".time-pill").forEach(p=>p.classList.remove("active"));
+        el.classList.add("active"); updateSummary();
+      }));
+    }
+    renderTimes();
+
+    function svcById(id){ return services.find(s=>s.id===id); }
+    function updateSummary(){
+      const s = svcById(sel.service);
+      document.getElementById("sumSvc").textContent = s ? s.name : "—";
+      document.getElementById("sumDate").textContent = sel.date || "—";
+      document.getElementById("sumTime").textContent = sel.time || "—";
+      document.getElementById("continueBtn").disabled = !(sel.service && sel.date && sel.time);
+    }
+
+    document.getElementById("continueBtn").addEventListener("click",()=>{
+      const s = svcById(sel.service);
+      Store.set({
+        bizId: b.id, bizName: b.name, bizCity: b.city, bizArea: b.area,
+        service: s.name, serviceId: s.id, price: s.price, dur: s.dur,
+        date: sel.date, time: sel.time,
+      });
+      location.href = "reserve.html";
+    });
+
+    // reviews
+    document.getElementById("rvSummary").innerHTML = `<span class="stars">★</span> ${b.rating} · ${b.reviews} değerlendirme`;
+    const reviews = b.reviewsList || [];
+    document.getElementById("reviews").innerHTML = reviews.length ? reviews.map(r=>`
+      <div class="review">
+        <div class="av">${r.name[0]}</div>
+        <div style="flex:1">
+          <div class="rv-head">
+            <div><span class="rv-name">${r.name}</span> <span class="rating" style="margin-left:6px"><span class="stars">${'★'.repeat(r.stars)}</span></span></div>
+            <span class="rv-date">${r.date}</span>
+          </div>
+          <p class="rv-text">${r.text}</p>
+        </div>
+      </div>`).join("") : `<p class="muted">Henüz yorum yok.</p>`;
+
+    initReveal();
+    buildFooter();
+  </script>
+</body>
+</html>

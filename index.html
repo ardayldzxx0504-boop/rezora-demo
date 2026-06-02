@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rezora — Kuzey Kıbrıs'ın Akıllı Rezervasyon Platformu</title>
+  <meta name="description" content="Berber, kuaför, restoran, halı saha ve daha fazlası. Kuzey Kıbrıs'ta saniyeler içinde online randevu al. WhatsApp & SMS onayı.">
+  <link rel="icon" href="assets/img/rezora-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/gate.js"></script>
+</head>
+<body>
+  <main>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow reveal"><span class="dot" style="background:var(--purple-600)"></span> Kuzey Kıbrıs · KKTC</span>
+          <h1 class="reveal reveal-d1">Randevu almanın <span class="text-grad">en akıllı</span> yolu.</h1>
+          <p class="lead reveal reveal-d2">Berberden restorana, halı sahadan veterinere — Kuzey Kıbrıs'ın en sevilen işletmelerinden saniyeler içinde online rezervasyon yap. Onay anında WhatsApp'ında.</p>
+
+          <div class="reveal reveal-d3" id="heroSearch"></div>
+
+          <div class="hero-stats reveal reveal-d4">
+            <div class="stat"><div class="num">325+</div><div class="lbl">Aktif işletme</div></div>
+            <div class="stat"><div class="num">48K+</div><div class="lbl">Tamamlanan randevu</div></div>
+            <div class="stat"><div class="num">4.9★</div><div class="lbl">Ortalama puan</div></div>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal reveal-d2" id="heroVisual"></div>
+      </div>
+    </section>
+
+    <!-- TRUSTED -->
+    <section class="trusted">
+      <div class="container">
+        <div class="row">
+          <span class="lbl">KKTC'NİN ÖNDE GELEN İŞLETMELERİ REZORA KULLANIYOR</span>
+          <span class="name">Elite Barber</span>
+          <span class="name">Luxe Hair</span>
+          <span class="name">Mezze House</span>
+          <span class="name">Arena Saha</span>
+          <span class="name">Happy Paws</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATEGORIES -->
+    <section class="section" id="categories">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="eyebrow">Kategoriler</span>
+          <h2>Ne rezerve etmek istersin?</h2>
+          <p>İhtiyacın olan her hizmet, tek platformda. Kategori seç, işletmeni bul, randevunu al.</p>
+        </div>
+        <div class="grid cat-grid" id="catGrid"></div>
+      </div>
+    </section>
+
+    <!-- FEATURED -->
+    <section class="section" style="padding-top:0" id="featured">
+      <div class="container">
+        <div class="flex items-center justify-between reveal" style="margin-bottom:40px;flex-wrap:wrap;gap:16px">
+          <div>
+            <span class="eyebrow">Öne çıkanlar</span>
+            <h2 style="font-size:clamp(1.8rem,4vw,2.5rem);margin-top:14px">Bu hafta en çok tercih edilenler</h2>
+          </div>
+          <a href="businesses.html" class="btn btn-ghost">Tümünü gör →</a>
+        </div>
+        <div class="grid biz-grid" id="featuredGrid"></div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section" style="background:var(--gray-50);padding:80px 0">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="eyebrow">Nasıl çalışır?</span>
+          <h2>3 adımda rezervasyon</h2>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(3,1fr)" id="howGrid"></div>
+      </div>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="section" id="testimonials">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="eyebrow">Görüşler</span>
+          <h2>Müşteriler ve işletmeler ne diyor?</h2>
+          <p>Binlerce kullanıcı ve yüzlerce işletme Rezora ile zamandan kazanıyor.</p>
+        </div>
+        <div class="grid tst-grid" id="tstGrid"></div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section" id="cta" style="padding-top:0">
+      <div class="container">
+        <div class="cta-band reveal">
+          <span class="badge" style="background:rgba(255,255,255,.12);color:#fff">İşletmeler için</span>
+          <h2 style="margin-top:16px">İşletmeni Rezora'ya taşı,<br>boş koltuk kalmasın.</h2>
+          <p>Online rezervasyon, otomatik WhatsApp & SMS onayları ve güçlü bir yönetim paneli. Kurulum 5 dakika, ilk 30 gün ücretsiz.</p>
+          <div class="cta-actions">
+            <a href="dashboard.html" class="btn btn-white btn-lg">Paneli keşfet →</a>
+            <a href="businesses.html" class="btn btn-lg" style="background:rgba(255,255,255,.12);color:#fff">Demoyu incele</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initLayout("home");
+
+    // Hero search
+    document.getElementById("heroSearch").innerHTML = `
+      <form class="search-bar" onsubmit="goSearch(event)">
+        <div class="field">
+          ${ICON.search}
+          <input id="qText" type="text" placeholder="İşletme veya hizmet ara...">
+        </div>
+        <div class="divider"></div>
+        <div class="field" style="flex:0 0 auto">
+          ${ICON.pin}
+          <select id="qCity">
+            <option value="">Tüm şehirler</option>
+            ${REZORA.cities.map(c=>`<option>${c}</option>`).join("")}
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">Ara</button>
+      </form>`;
+
+    // Hero visual
+    const eb = REZORA.findBusiness("elite-barber");
+    document.getElementById("heroVisual").innerHTML = `
+      <div class="hero-card-main">
+        <div class="hc-img" style="${imgStyle(eb.img, 700)}"></div>
+        <div class="hc-body">
+          <div class="flex items-center justify-between">
+            <span class="badge badge-purple">${eb.categoryName}</span>
+            <span class="rating"><span class="stars">★</span> ${eb.rating} <span class="count">(${eb.reviews})</span></span>
+          </div>
+          <h4 style="margin-top:12px">${eb.name}</h4>
+          <div class="biz-meta" style="margin-top:6px">${ICON.pin} ${eb.city} · ${eb.area}</div>
+          <div class="hc-row">
+            <div style="display:flex;gap:6px">
+              <span class="badge badge-green"><span class="dot"></span> Bugün müsait</span>
+            </div>
+            <a href="business.html?id=elite-barber" class="btn btn-dark btn-sm">Randevu al</a>
+          </div>
+        </div>
+      </div>
+      <div class="float-card float-1">
+        <div class="fc-ico" style="background:var(--green-50);color:var(--green-500)">${ICON.checkCircle}</div>
+        <div><div class="fc-t">Onaylandı ✓</div><div class="fc-s">12 Haziran · 15:00</div></div>
+      </div>
+      <div class="float-card float-2">
+        <div class="fc-ico" style="background:#e7f9ee;color:#25D366">${ICON.whatsapp}</div>
+        <div><div class="fc-t">WhatsApp bildirimi</div><div class="fc-s">Randevun hazır!</div></div>
+      </div>`;
+
+    // Categories
+    document.getElementById("catGrid").innerHTML = REZORA.categories.map((c,i)=>`
+      <a class="cat-card reveal reveal-d${(i%5)+1}" href="businesses.html?cat=${c.id}">
+        <div class="cat-ico">${ICON[c.icon]}</div>
+        <div class="cat-name">${c.name}</div>
+        <div class="cat-count">${c.count} işletme</div>
+      </a>`).join("");
+
+    // Featured
+    const featured = REZORA.businesses.filter(b=>b.featured).slice(0,6);
+    document.getElementById("featuredGrid").innerHTML = featured.map((b,i)=>bizCard(b, i)).join("");
+
+    // How it works
+    const how = [
+      { ic:"search", t:"1 · Keşfet", d:"Kategoriden veya aramadan sana en uygun işletmeyi bul." },
+      { ic:"calendar", t:"2 · Rezerve Et", d:"Hizmet, tarih ve saat seç; bilgilerini gir, randevunu oluştur." },
+      { ic:"whatsapp", t:"3 · Onayını Al", d:"İşletme onayladığında WhatsApp ve SMS ile anında bilgilendiril." },
+    ];
+    document.getElementById("howGrid").innerHTML = how.map((h,i)=>`
+      <div class="reveal reveal-d${i+1}" style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:30px">
+        <div class="cat-ico" style="border-radius:14px;width:54px;height:54px">${ICON[h.ic]}</div>
+        <h3 style="font-size:1.25rem;margin:18px 0 10px">${h.t}</h3>
+        <p class="muted">${h.d}</p>
+      </div>`).join("");
+
+    // Testimonials
+    document.getElementById("tstGrid").innerHTML = REZORA.testimonials.map((t,i)=>`
+      <div class="tst-card reveal reveal-d${i+1}">
+        <div class="rating"><span class="stars">★★★★★</span></div>
+        <p class="quote">“${t.text}”</p>
+        <div class="who">
+          <div class="av">${t.initials}</div>
+          <div><div class="n">${t.name}</div><div class="r">${t.role}</div></div>
+        </div>
+      </div>`).join("");
+
+    function goSearch(e){
+      e.preventDefault();
+      const q = document.getElementById("qText").value.trim();
+      const city = document.getElementById("qCity").value;
+      const p = new URLSearchParams();
+      if(q) p.set("q", q);
+      if(city) p.set("city", city);
+      location.href = "businesses.html" + (p.toString()?("?"+p.toString()):"");
+    }
+
+    initReveal();
+    buildFooter();
+  </script>
+</body>
+</html>

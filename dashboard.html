@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İşletme Paneli — Rezora</title>
+  <link rel="icon" href="assets/img/rezora-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/gate.js"></script>
+</head>
+<body>
+  <main>
+    <div class="dash">
+      <!-- SIDEBAR -->
+      <aside class="dash-side">
+        <div class="dash-biz">
+          <div class="db-logo">EB</div>
+          <div>
+            <div class="db-name">Elite Barber</div>
+            <div class="db-sub">Girne · Premium</div>
+          </div>
+        </div>
+        <nav class="dash-nav" id="dashNav">
+          <a href="#" class="active" data-view="overview"><span>Genel Bakış</span></a>
+          <a href="#" data-view="reservations"><span>Rezervasyonlar</span></a>
+          <a href="notifications.html"><span>Bildirimler</span></a>
+          <a href="#" data-view="services"><span>Hizmetler</span></a>
+          <a href="#" data-view="settings"><span>Ayarlar</span></a>
+        </nav>
+        <div style="margin-top:24px;padding:16px;background:var(--purple-50);border:1px solid var(--purple-100);border-radius:var(--radius)">
+          <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem">Pro plan aktif</div>
+          <div class="muted" style="font-size:.8rem;margin-top:4px">Sınırsız rezervasyon · WhatsApp API</div>
+        </div>
+      </aside>
+
+      <!-- MAIN -->
+      <div class="dash-main">
+        <div class="dash-head">
+          <div>
+            <h1>Merhaba, Hakan 👋</h1>
+            <p>İşte Elite Barber'ın bugünkü özeti — 12 Haziran 2026, Cuma</p>
+          </div>
+          <div class="flex gap-12">
+            <button class="btn btn-ghost btn-sm" id="bellBtn" onclick="toast('Tüm bildirimler okundu','bell')"><span id="bellCount">3</span></button>
+            <a href="business.html?id=elite-barber" class="btn btn-dark btn-sm">İşletme sayfam →</a>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid" id="kpiGrid"></div>
+
+        <!-- columns -->
+        <div class="dash-cols">
+          <!-- reservations -->
+          <div class="panel reveal">
+            <div class="panel-head">
+              <h3>Rezervasyonlar</h3>
+              <div class="flex gap-8" id="resTabs">
+                <button class="chip active" data-filter="all" style="padding:7px 14px;font-size:.82rem">Tümü</button>
+                <button class="chip" data-filter="pending" style="padding:7px 14px;font-size:.82rem">Onay bekleyen</button>
+                <button class="chip" data-filter="approved" style="padding:7px 14px;font-size:.82rem">Onaylı</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="rtable">
+                <thead>
+                  <tr><th>Müşteri</th><th>Hizmet</th><th>Zaman</th><th>Tutar</th><th>Durum</th><th>İşlem</th></tr>
+                </thead>
+                <tbody id="resBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- side widgets -->
+          <div class="grid gap-16">
+            <div class="panel reveal reveal-d1">
+              <div class="panel-head"><h3>Haftalık Rezervasyon</h3><span class="badge badge-green">↑ +18%</span></div>
+              <div style="padding:18px 22px 22px">
+                <div class="chart" id="chart"></div>
+              </div>
+            </div>
+
+            <div class="panel reveal reveal-d2">
+              <div class="panel-head"><h3>Bugünün Programı</h3></div>
+              <div id="schedule"></div>
+            </div>
+
+            <div class="panel reveal reveal-d3" style="background:var(--grad-ink);color:#fff;border:none">
+              <div style="padding:22px">
+                <div style="font-size:.85rem;opacity:.7">Bu ayki gelir</div>
+                <div style="font-family:var(--font-head);font-weight:800;font-size:2.2rem;margin:6px 0">₺48.250</div>
+                <div class="flex items-center gap-8" style="color:#86efac;font-size:.85rem;font-weight:700">↑ %24 geçen aya göre</div>
+                <div style="height:1px;background:rgba(255,255,255,.12);margin:16px 0"></div>
+                <div class="flex justify-between" style="font-size:.85rem;opacity:.85"><span>Tamamlanan</span><span>96 randevu</span></div>
+                <div class="flex justify-between" style="font-size:.85rem;opacity:.85;margin-top:6px"><span>İptal oranı</span><span>%3.2</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initLayout("dashboard");
+
+    // sidebar icons
+    const navIcons = ["grid","calendar","bell","scissors","settings"];
+    document.querySelectorAll("#dashNav a").forEach((a,i)=>a.insertAdjacentHTML("afterbegin", ICON[navIcons[i]]));
+    document.querySelectorAll("#dashNav a[data-view]").forEach(a=>a.addEventListener("click",(e)=>{
+      e.preventDefault();
+      document.querySelectorAll("#dashNav a").forEach(x=>x.classList.remove("active"));
+      a.classList.add("active");
+      if(a.dataset.view!=="overview" && a.dataset.view!=="reservations") toast("Bu bölüm demoda yakında","bell");
+    }));
+    document.querySelector('[onclick*="okundu"]').insertAdjacentHTML("afterbegin", ICON.bell);
+
+    // working copy of reservations
+    let data = REZORA.reservations.map(r=>({...r}));
+    let filter = "all";
+
+    const statusMap = {
+      pending:   {label:"Onay bekliyor", cls:"badge-amber"},
+      approved:  {label:"Onaylandı",     cls:"badge-green"},
+      completed: {label:"Tamamlandı",    cls:"badge-purple"},
+      rejected:  {label:"Reddedildi",    cls:"badge-red"},
+    };
+
+    function kpis(){
+      const today = data.filter(r=>r.when==="Bugün");
+      const pending = data.filter(r=>r.status==="pending");
+      const revenue = data.filter(r=>r.status==="completed").reduce((a,r)=>a+r.price,0);
+      const week = REZORA.weeklyChart.reduce((a,d)=>a+d.v,0);
+      return [
+        {ic:"calendar", bg:"var(--purple-50)", fg:"var(--purple-700)", val:today.length, lbl:"Bugünkü rezervasyon", trend:"up", t:"+3 dün"},
+        {ic:"trend", bg:"#eef6ff", fg:"#2563eb", val:week, lbl:"Bu hafta", trend:"up", t:"+18%"},
+        {ic:"inbox", bg:"var(--amber-50)", fg:"#b45309", val:pending.length, lbl:"Onay bekleyen", trend:"down", t:"yanıt bekliyor"},
+        {ic:"money", bg:"var(--green-50)", fg:"#047857", val:money(48250), lbl:"Aylık gelir", trend:"up", t:"+24%"},
+      ];
+    }
+    function renderKpi(){
+      document.getElementById("kpiGrid").innerHTML = kpis().map((k,i)=>`
+        <div class="kpi reveal reveal-d${i+1}">
+          <div class="k-ico" style="background:${k.bg};color:${k.fg}">${ICON[k.ic]}</div>
+          <div class="k-val">${k.val}</div>
+          <div class="k-lbl">${k.lbl}</div>
+          <div class="k-trend ${k.trend}">${k.trend==="up"?ICON.trend:ICON.trendDown} ${k.t}</div>
+        </div>`).join("");
+      initReveal();
+    }
+
+    function renderTable(){
+      const rows = data.filter(r=> filter==="all" ? true : r.status===filter);
+      document.getElementById("resBody").innerHTML = rows.map(r=>{
+        const st = statusMap[r.status];
+        let actions = "";
+        if(r.status==="pending"){
+          actions = `
+            <button class="icon-btn ok" title="Onayla" onclick="act('${r.id}','approve')">${ICON.check}</button>
+            <button class="icon-btn no" title="Reddet" onclick="act('${r.id}','reject')">${ICON.x}</button>`;
+        } else if(r.status==="approved"){
+          actions = `<button class="icon-btn go" title="Tamamlandı olarak işaretle" onclick="act('${r.id}','complete')">${ICON.checkCircle}</button>`;
+        } else {
+          actions = `<span class="muted" style="font-size:.8rem">—</span>`;
+        }
+        return `
+        <tr>
+          <td><div class="cust"><div class="cav">${r.customer.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+            <div><div class="cname">${r.customer}</div><div class="cphone">${r.phone}</div></div></div></td>
+          <td>${r.service}</td>
+          <td><div style="font-weight:600">${r.when}</div><div class="cphone">${r.date} · ${r.time}</div></td>
+          <td style="font-family:var(--font-head);font-weight:700">${money(r.price)}</td>
+          <td><span class="badge ${st.cls}"><span class="dot"></span> ${st.label}</span></td>
+          <td><div class="row-actions">${actions}</div></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="6" class="center muted" style="padding:40px">Bu filtrede rezervasyon yok.</td></tr>`;
+    }
+
+    window.act = function(id, type){
+      const r = data.find(x=>x.id===id);
+      if(!r) return;
+      if(type==="approve"){ r.status="approved"; toast(`${r.customer} onaylandı · WhatsApp gönderildi`,"ok"); }
+      if(type==="reject"){ r.status="rejected"; toast(`${r.customer} reddedildi · müşteri bilgilendirildi`,"bell"); }
+      if(type==="complete"){ r.status="completed"; toast(`${r.customer} tamamlandı olarak işaretlendi`,"ok"); }
+      renderKpi(); renderTable(); renderSchedule();
+    };
+
+    document.querySelectorAll("#resTabs .chip").forEach(c=>c.addEventListener("click",()=>{
+      filter = c.dataset.filter;
+      document.querySelectorAll("#resTabs .chip").forEach(x=>x.classList.remove("active"));
+      c.classList.add("active"); renderTable();
+    }));
+
+    // chart
+    const maxV = Math.max(...REZORA.weeklyChart.map(d=>d.v));
+    document.getElementById("chart").innerHTML = REZORA.weeklyChart.map((d,i)=>`
+      <div class="bar-col">
+        <div class="bar" style="height:0" data-h="${(d.v/maxV*100).toFixed(0)}"></div>
+        <div class="bar-lbl">${d.d}</div>
+      </div>`).join("");
+    setTimeout(()=>{ document.querySelectorAll("#chart .bar").forEach(b=>{ b.style.height = b.dataset.h+"%"; }); }, 200);
+
+    // schedule (today's approved/pending sorted by time)
+    function renderSchedule(){
+      const today = data.filter(r=>r.when==="Bugün" && r.status!=="rejected").sort((a,b)=>a.time.localeCompare(b.time));
+      document.getElementById("schedule").innerHTML = today.map(r=>`
+        <div class="mini-item">
+          <div class="mi-l">
+            <div class="mi-ico">${ICON.clock}</div>
+            <div><div style="font-family:var(--font-head);font-weight:700;font-size:.92rem">${r.time} · ${r.customer}</div>
+            <div class="cphone">${r.service}</div></div>
+          </div>
+          <span class="badge ${statusMap[r.status].cls}">${statusMap[r.status].label}</span>
+        </div>`).join("") || `<div class="mini-item"><span class="muted">Bugün için planlı randevu yok.</span></div>`;
+    }
+
+    renderKpi();
+    renderTable();
+    renderSchedule();
+    buildFooter();
+  </script>
+</body>
+</html>
