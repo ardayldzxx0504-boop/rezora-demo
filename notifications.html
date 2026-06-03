@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bildirimler — Rezora</title>
+  <meta name="description" content="Rezora otomatik WhatsApp ve SMS bildirimleri ile müşterilerini her adımda bilgilendirir.">
+  <link rel="icon" href="assets/img/rezora-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/gate.js"></script>
+</head>
+<body>
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Ana sayfa</a> <span>›</span> <span>Bildirimler</span></div>
+        <h1>Müşterilerin her zaman haberdar</h1>
+        <p>Rezervasyon onaylandığında, hatırlatma zamanı geldiğinde veya bir değişiklik olduğunda — Rezora otomatik olarak WhatsApp ve SMS gönderir.</p>
+        <div class="flex gap-12" style="margin-top:20px;flex-wrap:wrap">
+          <span class="badge badge-green"><span class="dot"></span> %98 açılma oranı</span>
+          <span class="badge badge-purple"><span class="dot"></span> Otomatik & anlık</span>
+          <span class="badge badge-gray"><span class="dot"></span> İptal/hatırlatma desteği</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="notif-grid">
+          <!-- WhatsApp -->
+          <div class="reveal">
+            <div class="center" style="margin-bottom:24px">
+              <span class="badge badge-green" style="font-size:.85rem">WhatsApp Onayı</span>
+              <p class="muted" style="margin-top:8px;font-size:.9rem">Onay anında müşterinin WhatsApp'ına düşer.</p>
+            </div>
+            <div class="phone">
+              <div class="phone-screen">
+                <div class="wa-head">
+                  <div class="wa-av">R</div>
+                  <div><div class="wa-n">Rezora</div><div class="wa-s">çevrimiçi · iş hesabı</div></div>
+                </div>
+                <div class="wa-body" id="waBody"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SMS -->
+          <div class="reveal reveal-d1">
+            <div class="center" style="margin-bottom:24px">
+              <span class="badge badge-purple" style="font-size:.85rem">SMS Onayı</span>
+              <p class="muted" style="margin-top:8px;font-size:.9rem">İnternet olmadan da ulaşır — her telefona.</p>
+            </div>
+            <div class="phone">
+              <div class="phone-screen imsg">
+                <div class="sms-head">
+                  <div class="sms-av">R</div>
+                  <div class="sms-n">REZORA</div>
+                  <div class="muted" style="font-size:.74rem">SMS</div>
+                </div>
+                <div class="sms-body" id="smsBody"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- App push + templates -->
+          <div class="reveal reveal-d2">
+            <div class="center" style="margin-bottom:24px">
+              <span class="badge badge-ink" style="font-size:.85rem">Uygulama Bildirimi</span>
+              <p class="muted" style="margin-top:8px;font-size:.9rem">İşletme panelinde anlık push.</p>
+            </div>
+            <div id="pushes"></div>
+
+            <div class="panel" style="margin-top:8px">
+              <div class="panel-head"><h3 style="font-size:1rem">Bildirim şablonları</h3></div>
+              <div id="templates"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LIVE simulation log -->
+        <div class="panel reveal" style="margin-top:56px">
+          <div class="panel-head">
+            <h3 style="font-size:1.1rem">Canlı Mesaj Kaydı (Simülasyon)</h3>
+            <span class="badge badge-green"><span class="dot"></span> Otomatik üretildi</span>
+          </div>
+          <div style="padding:8px 22px 16px" id="liveMsgs"></div>
+        </div>
+
+        <!-- channel features -->
+        <div class="grid" style="grid-template-columns:repeat(3,1fr);margin-top:64px" id="features"></div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0">
+      <div class="container">
+        <div class="cta-band reveal">
+          <h2>Otomatik bildirimlerle no-show'u bitir.</h2>
+          <p>Rezora kullanan işletmeler gelmeyen müşteri oranını ortalama %70 azaltıyor. Hatırlatmalar otomatik, onaylar anlık.</p>
+          <div class="cta-actions">
+            <a href="business.html?id=elite-barber" class="btn btn-white btn-lg">Rezervasyon dene →</a>
+            <a href="dashboard.html" class="btn btn-lg" style="background:rgba(255,255,255,.12);color:#fff">Paneli gör</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initLayout("notifications");
+
+    // Live simulated message log (from real reservation activity)
+    (function(){
+      const typeLabel = {created:"Talep alındı", approved:"Onay mesajı", rejected:"Red bildirimi", completed:"Teşekkür mesajı"};
+      const msgs = RezoraDB.getMessages().slice(0,6);
+      const wrap = document.getElementById("liveMsgs");
+      if(!msgs.length){ wrap.innerHTML = `<p class="muted" style="padding:16px 0">Henüz mesaj yok. Panelden bir rezervasyon onayla, burada anında görünsün.</p>`; return; }
+      wrap.className = "msg-log";
+      wrap.innerHTML = msgs.map(m=>{
+        const t = new Date(m.sentAt);
+        const b = RezoraDB.getBusiness(m.bizId);
+        return `<div class="msg-item">
+          <div class="msg-ico">${ICON.whatsapp}</div>
+          <div class="msg-body">
+            <div class="msg-head">
+              <span class="msg-to">${m.to} <span class="badge badge-gray" style="margin-left:6px">${typeLabel[m.type]||m.type}</span> <span class="muted" style="font-weight:600;font-size:.78rem">· ${b?b.name:''}</span></span>
+              <span class="msg-meta">${t.toLocaleDateString('tr-TR')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}</span>
+            </div>
+            <div class="msg-text">${m.text}</div>
+          </div>
+        </div>`;
+      }).join("");
+    })();
+
+    // WhatsApp conversation
+    document.getElementById("waBody").innerHTML = `
+      <div class="wa-bubble in">
+        <span class="wa-brand">Rezora</span><br>
+        Merhaba Arda 👋 <strong>Elite Barber</strong> için <strong>Saç + Sakal Paketi</strong> rezervasyon talebin alındı. İşletme onayını bekliyoruz.
+        <div class="wa-time">14:58</div>
+      </div>
+      <div class="wa-bubble in">
+        ✅ <strong>Rezervasyonun onaylandı!</strong><br>
+        Merhaba Arda, <strong>Elite Barber</strong> için <strong>12 Haziran</strong> saat <strong>15:00</strong> rezervasyonun onaylandı. Görüşmek üzere!
+        <div class="wa-time">15:02 <span class="tick">✓✓</span></div>
+      </div>
+      <div class="wa-bubble in">
+        ⏰ <strong>Hatırlatma</strong><br>
+        Randevuna 1 saat kaldı. Adres: Karaoğlanoğlu Cd. No:14, Girne. Yol tarifi için: <span style="color:#2563eb">maps.rezora.app/elite</span>
+        <div class="wa-time">14:00 <span class="tick">✓✓</span></div>
+      </div>
+      <div class="wa-bubble">İptal etmem gerekirse?<div class="wa-time">14:05 <span class="tick">✓✓</span></div></div>
+      <div class="wa-bubble in">
+        Sorun değil! İptal için: <span style="color:#2563eb">rezora.app/iptal/RZ-2042</span>
+        <div class="wa-time">14:05</div>
+      </div>`;
+
+    // SMS
+    document.getElementById("smsBody").innerHTML = `
+      <div class="sms-time">Bugün 15:02</div>
+      <div class="sms-bubble">REZORA: Sayin Arda Demir, Elite Barber icin 12 Haziran 15:00 rezervasyonunuz ONAYLANDI. Iptal: rezora.app/i/RZ-2042</div>
+      <div class="sms-time">Bugün 14:00</div>
+      <div class="sms-bubble">REZORA: Randevu hatirlatmasi - Elite Barber, bugun 15:00. Adres: Karaoglanoglu Cd. No:14, Girne. Gorusmek uzere!</div>
+      <div class="sms-bubble">REZORA: Ziyaretiniz icin tesekkurler! Elite Barber deneyiminizi degerlendirin: rezora.app/p/RZ-2042</div>`;
+
+    // push notifications
+    const pushes = [
+      {t:"Yeni rezervasyon talebi", m:"Arda Demir · Saç + Sakal · 12 Haz 15:00", time:"şimdi"},
+      {t:"Rezervasyon onaylandı", m:"Müşteriye WhatsApp & SMS gönderildi", time:"2 dk"},
+      {t:"Yaklaşan randevu", m:"Burak Şahin · 1 saat içinde", time:"5 dk"},
+    ];
+    document.getElementById("pushes").innerHTML = pushes.map(p=>`
+      <div class="push">
+        <div class="p-ico"><img src="assets/img/rezora-logo.png" alt=""></div>
+        <div><div class="p-t">${p.t}</div><div class="p-m">${p.m}</div></div>
+        <div class="p-time">${p.time}</div>
+      </div>`).join("");
+
+    // templates
+    const tpl = [
+      {ic:"check", c:"#047857", bg:"var(--green-50)", t:"Onay mesajı"},
+      {ic:"clock", c:"var(--purple-700)", bg:"var(--purple-50)", t:"Hatırlatma (1 saat önce)"},
+      {ic:"x", c:"#b91c1c", bg:"var(--red-50)", t:"İptal / değişiklik"},
+      {ic:"star", c:"#b45309", bg:"var(--amber-50)", t:"Değerlendirme isteği"},
+    ];
+    document.getElementById("templates").innerHTML = tpl.map(t=>`
+      <div class="mini-item">
+        <div class="mi-l">
+          <div class="mi-ico" style="background:${t.bg};color:${t.c}">${ICON[t.ic]}</div>
+          <div style="font-family:var(--font-head);font-weight:600;font-size:.9rem">${t.t}</div>
+        </div>
+        <span class="badge badge-green" style="font-size:.72rem"><span class="dot"></span> Aktif</span>
+      </div>`).join("");
+
+    // features
+    const feats = [
+      {ic:"bolt", t:"Anlık gönderim", d:"Onay verdiğin an müşteriye ulaşır. Ortalama gönderim süresi 2 saniye."},
+      {ic:"whatsapp", t:"WhatsApp Business API", d:"Resmi WhatsApp altyapısı ile markanın adıyla, güvenilir mesajlar."},
+      {ic:"shield", t:"KVKK uyumlu", d:"Tüm bildirimler izinli ve veri güvenliği standartlarına uygun gönderilir."},
+    ];
+    document.getElementById("features").innerHTML = feats.map((f,i)=>`
+      <div class="reveal reveal-d${i+1}" style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:28px">
+        <div class="cat-ico" style="width:50px;height:50px;border-radius:14px">${ICON[f.ic]}</div>
+        <h3 style="font-size:1.15rem;margin:16px 0 8px">${f.t}</h3>
+        <p class="muted">${f.d}</p>
+      </div>`).join("");
+
+    initReveal();
+    buildFooter();
+  </script>
+</body>
+</html>

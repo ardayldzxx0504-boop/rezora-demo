@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Archives / build junk (not part of the static site)
+*.zip
+
+# Node / Vercel (if added later)
+node_modules/
+.vercel/
+.env*

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rezervasyon — Rezora</title>
+  <link rel="icon" href="assets/img/rezora-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/gate.js"></script>
+</head>
+<body>
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div class="breadcrumb">
+          <a href="index.html">Ana sayfa</a> <span>›</span>
+          <a id="bcBiz" href="#">İşletme</a> <span>›</span> <span>Rezervasyon</span>
+        </div>
+        <h1>Rezervasyonunu tamamla</h1>
+        <p id="bizSub"></p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:40px">
+      <div class="container flow-wrap">
+        <div class="steps">
+          <div class="step" data-step="1"><div class="num">1</div><div class="lbl">Hizmet</div></div>
+          <div class="step-line"></div>
+          <div class="step" data-step="2"><div class="num">2</div><div class="lbl">Tarih & Saat</div></div>
+          <div class="step-line"></div>
+          <div class="step" data-step="3"><div class="num">3</div><div class="lbl">Bilgiler</div></div>
+        </div>
+
+        <div class="flow-card">
+          <!-- STEP 1 -->
+          <div class="pane" data-pane="1">
+            <h3 style="margin-bottom:6px">Hizmet seç</h3>
+            <p class="muted" style="margin-bottom:20px">Almak istediğin hizmeti seç.</p>
+            <div class="svc-list" id="svcList"></div>
+            <div class="flex justify-between" style="margin-top:26px">
+              <a href="business.html" class="btn btn-ghost" id="backToBiz">← İşletmeye dön</a>
+              <button class="btn btn-primary" id="next1" disabled>Devam et →</button>
+            </div>
+          </div>
+
+          <!-- STEP 2 -->
+          <div class="pane hidden" data-pane="2">
+            <h3 style="margin-bottom:6px">Tarih ve saat seç</h3>
+            <p class="muted" style="margin-bottom:18px">Sana uygun günü ve saati belirle.</p>
+            <label class="picker-label">Tarih</label>
+            <div class="date-row" id="dateRow" style="margin-bottom:24px"></div>
+            <label class="picker-label">Saat</label>
+            <div class="time-row" id="timeRow"></div>
+            <div class="flex justify-between" style="margin-top:26px">
+              <button class="btn btn-ghost" data-goto="1">← Geri</button>
+              <button class="btn btn-primary" id="next2" disabled>Devam et →</button>
+            </div>
+          </div>
+
+          <!-- STEP 3 -->
+          <div class="pane hidden" data-pane="3">
+            <h3 style="margin-bottom:6px">İletişim bilgilerin</h3>
+            <p class="muted" style="margin-bottom:20px">Onay bu numaraya WhatsApp ve SMS ile gönderilecek.</p>
+            <form id="infoForm">
+              <div class="field-group">
+                <label>Ad Soyad</label>
+                <div class="input-icon" id="nameWrap">
+                  <input class="input" id="fName" type="text" placeholder="Örn. Arda Demir" required>
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Telefon Numarası</label>
+                <div class="input-icon" id="phoneWrap">
+                  <input class="input" id="fPhone" type="tel" placeholder="+90 533 000 00 00" required>
+                </div>
+              </div>
+              <div class="field-group">
+                <label>Not (opsiyonel)</label>
+                <textarea class="input" id="fNote" rows="2" placeholder="İşletmeye iletmek istediğin bir not var mı?"></textarea>
+              </div>
+
+              <div class="summary-box" style="margin:8px 0 22px">
+                <div class="summary-row"><span class="k">İşletme</span><span class="v" id="sBiz"></span></div>
+                <div class="summary-row"><span class="k">Hizmet</span><span class="v" id="sSvc"></span></div>
+                <div class="summary-row"><span class="k">Tarih</span><span class="v" id="sDate"></span></div>
+                <div class="summary-row"><span class="k">Saat</span><span class="v" id="sTime"></span></div>
+                <div class="summary-total"><span class="k">Toplam tutar</span><span class="v" id="sTotal"></span></div>
+              </div>
+
+              <div class="flex justify-between">
+                <button type="button" class="btn btn-ghost" data-goto="2">← Geri</button>
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Rezervasyonu oluştur ✓</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <p class="muted center" style="margin-top:18px;font-size:.85rem">🔒 Bilgilerin güvende. Bu bir demo rezervasyonudur, ödeme alınmaz.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initLayout("");
+
+    const pre = Store.get();
+    const allBiz = RezoraDB.getBusinesses();
+    const b = RezoraDB.getBusiness(pre.bizId) || allBiz[0];
+    const services = b.services || [];
+    function svcPrice(s){ return (s.price===null||s.price===undefined||s.price==="") ? null : s.price; }
+
+    const sel = {
+      service: pre.serviceId || null,
+      dateIso: pre.dateIso || null,
+      dateLabel: pre.date || null,
+      time: pre.time || null,
+    };
+
+    document.getElementById("nameWrap").insertAdjacentHTML("afterbegin", ICON.user);
+    document.getElementById("phoneWrap").insertAdjacentHTML("afterbegin", ICON.phone);
+
+    document.getElementById("bizSub").textContent = `${b.name} · ${b.city}${b.area?(' · '+b.area):''}`;
+    document.getElementById("bcBiz").textContent = b.name;
+    document.getElementById("bcBiz").href = "business.html?id="+b.id;
+    document.getElementById("backToBiz").href = "business.html?id="+b.id;
+
+    // STEP 1 services
+    function renderSvc(){
+      document.getElementById("svcList").innerHTML = services.map(s=>{
+        const p = svcPrice(s);
+        return `
+        <div class="svc-item ${sel.service===s.id?'selected':''}" data-svc="${s.id}">
+          <div>
+            <div class="svc-name">${s.name} ${s.popular?'<span class="badge badge-purple" style="margin-left:6px">En popüler</span>':''}</div>
+            <div class="svc-dur">⏱ ${s.dur} dk</div>
+          </div>
+          <div class="svc-price">${p!==null ? money(p) : '<span class="muted" style="font-size:.82rem;font-weight:600">Fiyatı sor</span>'}</div>
+        </div>`;
+      }).join("");
+      document.querySelectorAll("#svcList .svc-item").forEach(el=>el.addEventListener("click",()=>{
+        sel.service = el.dataset.svc; renderSvc();
+        document.getElementById("next1").disabled = false;
+      }));
+    }
+    renderSvc();
+
+    // STEP 2 dates & times
+    const dates = genDates(14, b.workingDays);
+    document.getElementById("dateRow").innerHTML = dates.map(d=>`
+      <button class="date-pill ${d.disabled?'disabled':''} ${sel.dateIso===d.iso?'active':''}" data-iso="${d.iso}" data-label="${d.key}" ${d.disabled?'disabled':''}>
+        <div class="dp-day">${d.day}</div><div class="dp-num">${d.num}</div><div class="dp-mon">${d.mon}</div>
+      </button>`).join("");
+    const hours = genTimes(b.openTime, b.closeTime, b.slotMinutes);
+    function renderTimes(){
+      const taken = sel.dateIso ? RezoraDB.getTakenTimes(b.id, sel.dateIso) : [];
+      document.getElementById("timeRow").innerHTML = hours.map(h=>{
+        const isBooked = taken.indexOf(h) !== -1;
+        return `<button class="time-pill ${isBooked?'disabled':''} ${sel.time===h?'active':''}" data-time="${h}" ${(!sel.dateIso||isBooked)?'disabled':''}>${h}</button>`;
+      }).join("");
+      document.querySelectorAll("#timeRow .time-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
+        sel.time = el.dataset.time;
+        document.querySelectorAll("#timeRow .time-pill").forEach(p=>p.classList.remove("active"));
+        el.classList.add("active");
+        document.getElementById("next2").disabled = false;
+      }));
+    }
+    function bindDates(){
+      document.querySelectorAll("#dateRow .date-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
+        sel.dateIso = el.dataset.iso; sel.dateLabel = el.dataset.label; sel.time = null;
+        document.querySelectorAll("#dateRow .date-pill").forEach(p=>p.classList.remove("active"));
+        el.classList.add("active");
+        renderTimes(); document.getElementById("next2").disabled = true;
+      }));
+    }
+    bindDates(); renderTimes();
+    if(sel.dateIso && sel.time) document.getElementById("next2").disabled = false;
+
+    // Steps navigation
+    let current = 1;
+    function svcById(id){ return services.find(s=>s.id===id); }
+    function goStep(n){
+      current = n;
+      document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("hidden", +p.dataset.pane!==n));
+      document.querySelectorAll(".step").forEach(s=>{
+        const sn = +s.dataset.step;
+        s.classList.toggle("active", sn===n);
+        s.classList.toggle("done", sn<n);
+      });
+      if(n===2) renderTimes();
+      if(n===3) fillSummary();
+      window.scrollTo({top:0, behavior:"smooth"});
+    }
+    function fillSummary(){
+      const s = svcById(sel.service);
+      const p = s ? svcPrice(s) : null;
+      document.getElementById("sBiz").textContent = b.name;
+      document.getElementById("sSvc").textContent = s ? s.name : "—";
+      document.getElementById("sDate").textContent = sel.dateLabel || "—";
+      document.getElementById("sTime").textContent = sel.time || "—";
+      document.getElementById("sTotal").textContent = p!==null ? money(p) : "İşletmede";
+    }
+
+    document.getElementById("next1").addEventListener("click",()=>goStep(2));
+    document.getElementById("next2").addEventListener("click",()=>goStep(3));
+    document.querySelectorAll("[data-goto]").forEach(btn=>btn.addEventListener("click",()=>goStep(+btn.dataset.goto)));
+
+    // initial pre-fill state
+    if(sel.service) document.getElementById("next1").disabled = false;
+    goStep(1);
+
+    // Submit -> create reservation with conflict control
+    document.getElementById("infoForm").addEventListener("submit",(e)=>{
+      e.preventDefault();
+      const name = document.getElementById("fName").value.trim();
+      const phone = document.getElementById("fPhone").value.trim();
+      if(!name || !phone){ toast("Lütfen ad ve telefon gir","bell"); return; }
+      const s = svcById(sel.service);
+
+      const btn = document.getElementById("submitBtn");
+      btn.disabled = true; btn.textContent = "Gönderiliyor...";
+
+      const res = RezoraDB.createReservation({
+        bizId: b.id, serviceId: s.id,
+        date: sel.dateIso, dateLabel: sel.dateLabel, time: sel.time,
+        name, phone, note: document.getElementById("fNote").value.trim(),
+      });
+
+      if(!res.ok){
+        btn.disabled = false; btn.textContent = "Rezervasyonu oluştur ✓";
+        toast(res.error || "Bir hata oluştu", "bell");
+        // refresh availability and bounce user back to time step
+        goStep(2); sel.time = null; renderTimes();
+        document.getElementById("next2").disabled = true;
+        return;
+      }
+
+      Store.set({ reservationId: res.reservation.id });
+      setTimeout(()=>{ location.href = "success.html"; }, 650);
+    });
+
+    buildFooter();
+  </script>
+</body>
+</html>

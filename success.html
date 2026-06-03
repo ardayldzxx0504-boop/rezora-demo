@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rezervasyon Alındı — Rezora</title>
+  <link rel="icon" href="assets/img/rezora-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="assets/js/gate.js"></script>
+</head>
+<body>
+  <main>
+    <section class="section">
+      <div class="container success-wrap">
+        <div class="success-check">${''}</div>
+        <span class="badge badge-green" id="codeBadge"></span>
+        <h1 style="font-size:clamp(2rem,5vw,2.8rem);margin:18px 0 12px">Rezervasyon talebin alındı!</h1>
+        <p class="muted" style="font-size:1.1rem">İşletme talebini en kısa sürede onaylayacak. Onay ve hatırlatma <strong>WhatsApp ve SMS</strong> ile telefonuna gelecek.</p>
+
+        <div class="success-card">
+          <div class="flex items-center justify-between" style="margin-bottom:16px">
+            <h3 style="font-size:1.2rem">Rezervasyon Detayları</h3>
+            <span class="badge badge-amber"><span class="dot"></span> Onay bekliyor</span>
+          </div>
+          <div id="details"></div>
+        </div>
+
+        <!-- Notification preview -->
+        <div class="success-card" style="padding:0;overflow:hidden">
+          <div style="padding:16px 22px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px">
+            <span style="color:#25D366">${''}</span><strong>Birazdan telefonuna gelecek:</strong>
+          </div>
+          <div style="padding:18px 22px;background:var(--gray-50)">
+            <div class="wa-bubble" style="max-width:100%;align-self:stretch" id="waPreview"></div>
+          </div>
+        </div>
+
+        <div class="flex gap-12" style="justify-content:center;margin-top:28px;flex-wrap:wrap">
+          <a href="businesses.html" class="btn btn-ghost btn-lg">Başka rezervasyon yap</a>
+          <a href="dashboard.html" class="btn btn-primary btn-lg">İşletme panelinde gör →</a>
+        </div>
+        <p class="muted center" style="margin-top:16px;font-size:.85rem">Rezervasyon numaranı not al: <strong id="codeInline"></strong></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initLayout("");
+
+    const rid = Store.get().reservationId;
+    const r = (rid && RezoraDB.getReservation(rid)) || null;
+    const b = r ? RezoraDB.getBusiness(r.bizId) : RezoraDB.getBusiness("elite-barber");
+
+    // fallback if visited directly without a booking
+    const d = r || {
+      id: "RZ-2042", bizId: "elite-barber", serviceName: "Saç + Sakal Paketi",
+      dateLabel: "12 Haz", time: "15:00", price: 500, name: "Arda Demir", phone: "+90 533 000 00 00",
+    };
+    const priceTxt = (d.price === null || d.price === undefined || d.price === "") ? "İşletmede" : money(d.price);
+
+    document.querySelector(".success-check").innerHTML = ICON.check;
+    document.getElementById("codeBadge").innerHTML = `<span class="dot"></span> ${d.id}`;
+    document.getElementById("codeInline").textContent = d.id;
+
+    const rows = [
+      ["İşletme", (b ? b.name + " · " + b.city : d.bizName || "")],
+      ["Hizmet", d.serviceName],
+      ["Tarih", d.dateLabel || labelFromIso(d.date)],
+      ["Saat", d.time],
+      ["Ad Soyad", d.name],
+      ["Telefon", d.phone],
+    ];
+    document.getElementById("details").innerHTML = `
+      <div class="summary-box" style="background:var(--gray-50);border-color:var(--gray-200)">
+        ${rows.map(([k,v])=>`<div class="summary-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("")}
+        <div class="summary-total"><span class="k">Toplam tutar</span><span class="v">${priceTxt}</span></div>
+      </div>`;
+
+    // auto-generated WhatsApp message (simulation)
+    const waText = RezoraDB.previewMessage("created", d, b);
+    document.getElementById("waPreview").innerHTML =
+      `<span class="wa-brand">Rezora</span><br>${waText}
+       <div class="wa-time">şimdi <span class="tick">✓✓</span></div>`;
+
+    // whatsapp icon in header
+    document.querySelector('[style*="color:#25D366"]').innerHTML = ICON.whatsapp.replace('viewBox','width="20" height="20" viewBox');
+
+    buildFooter();
+  </script>
+</body>
+</html>
