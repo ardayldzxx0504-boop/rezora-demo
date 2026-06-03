@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İşletme Girişi — Rezora</title>
+  <meta name="description" content="Rezora işletme paneli girişi ve kayıt.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/app.js"></script>
+</head>
+<body>
+  <div class="rz-gate" style="position:relative">
+    <div class="rz-gate-card" style="max-width:440px">
+      <a href="index.html"><img src="assets/img/rezora-logo.png" alt="Rezora" class="rz-gate-logo"></a>
+
+      <div class="auth-tabs" id="authTabs">
+        <button class="auth-tab active" data-tab="login">Giriş Yap</button>
+        <button class="auth-tab" data-tab="signup">İşletme Kaydı</button>
+      </div>
+
+      <!-- LOGIN -->
+      <form id="loginForm" class="auth-pane">
+        <h2 style="font-size:1.3rem">Tekrar hoş geldin 👋</h2>
+        <p class="sub">İşletme panelinize giriş yapın.</p>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="liEmail" type="email" placeholder="E-posta" autocomplete="email" required></div>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="liPass" type="password" placeholder="Şifre" autocomplete="current-password" required></div>
+        <div class="rz-gate-error" id="liErr"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="liBtn">Giriş Yap</button>
+      </form>
+
+      <!-- SIGNUP -->
+      <form id="signupForm" class="auth-pane hidden">
+        <h2 style="font-size:1.3rem">İşletmeni Rezora'ya ekle</h2>
+        <p class="sub">Kaydını oluştur, ekibimiz onayladığında yayında ol.</p>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="suBiz" type="text" placeholder="İşletme adı (ör. Elite Barber)" required></div>
+        <div class="rz-gate-field">
+          <select class="rz-gate-input" id="suCat" style="padding-left:16px">
+            <option value="barber">Berber</option>
+            <option value="salon">Kuaför</option>
+          </select>
+        </div>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="suCity" type="text" placeholder="Şehir (ör. Girne)" required></div>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="suPhone" type="tel" placeholder="Telefon (+90 ...)"></div>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="suEmail" type="email" placeholder="E-posta" autocomplete="email" required></div>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password" required></div>
+        <div class="rz-gate-error" id="suErr"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="suBtn">Kaydı Oluştur</button>
+      </form>
+
+      <p class="rz-gate-note" style="margin-top:18px"><a href="index.html" style="color:var(--gray-500)">← Ana sayfaya dön</a></p>
+    </div>
+  </div>
+
+  <script>
+    rezoraConfigBanner();
+
+    // tabs
+    const panes = { login: document.getElementById("loginForm"), signup: document.getElementById("signupForm") };
+    document.querySelectorAll(".auth-tab").forEach(t=>t.addEventListener("click",()=>{
+      document.querySelectorAll(".auth-tab").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active");
+      const tab = t.dataset.tab;
+      panes.login.classList.toggle("hidden", tab!=="login");
+      panes.signup.classList.toggle("hidden", tab!=="signup");
+    }));
+
+    function showErr(el, msg){ el.textContent = msg; el.classList.add("show"); }
+    function clearErr(el){ el.textContent=""; el.classList.remove("show"); }
+
+    async function routeAfterLogin(){
+      const admin = await Rezora.isAdmin();
+      location.href = admin ? "admin.html" : "dashboard.html";
+    }
+
+    // already logged in? go straight in
+    (async()=>{ if(Rezora.configured && await Rezora.getSession()) routeAfterLogin(); })();
+
+    // LOGIN submit
+    document.getElementById("loginForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      clearErr(document.getElementById("liErr"));
+      const btn = document.getElementById("liBtn"); btn.disabled=true; btn.textContent="Giriş yapılıyor...";
+      const res = await Rezora.signIn(document.getElementById("liEmail").value.trim(), document.getElementById("liPass").value);
+      if(!res.ok){ showErr(document.getElementById("liErr"), res.error || "Giriş başarısız"); btn.disabled=false; btn.textContent="Giriş Yap"; return; }
+      await routeAfterLogin();
+    });
+
+    // SIGNUP submit
+    document.getElementById("signupForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const err = document.getElementById("suErr"); clearErr(err);
+      const btn = document.getElementById("suBtn"); btn.disabled=true; btn.textContent="Oluşturuluyor...";
+
+      const email = document.getElementById("suEmail").value.trim();
+      const pass = document.getElementById("suPass").value;
+      const bizName = document.getElementById("suBiz").value.trim();
+      const cat = document.getElementById("suCat").value;
+      const city = document.getElementById("suCity").value.trim();
+      const phone = document.getElementById("suPhone").value.trim();
+
+      const up = await Rezora.signUp(email, pass);
+      if(!up.ok){ showErr(err, up.error || "Kayıt başarısız"); btn.disabled=false; btn.textContent="Kaydı Oluştur"; return; }
+
+      // E-posta onayı kapalıysa oturum hemen gelir; açıksa giriş gerekebilir.
+      let session = up.session;
+      if(!session){
+        const si = await Rezora.signIn(email, pass);
+        session = si.ok ? si.session : null;
+      }
+      if(!session){
+        showErr(err, "Kaydın alındı. E-postanı onayladıktan sonra giriş yapıp işletmeni oluşturabilirsin.");
+        btn.disabled=false; btn.textContent="Kaydı Oluştur"; return;
+      }
+
+      // profil + (pending) işletme oluştur
+      const sb = Rezora.client();
+      const user = (await Rezora.getUser());
+      await sb.from("profiles").upsert({ id: user.id, role: "business", full_name: bizName, email });
+      const created = await Rezora.createBusiness({
+        ownerId: user.id, name: bizName, category: cat, city, phone, status: "pending",
+      });
+      if(!created.ok){ showErr(err, created.error || "İşletme oluşturulamadı"); btn.disabled=false; btn.textContent="Kaydı Oluştur"; return; }
+
+      location.href = "dashboard.html?welcome=1";
+    });
+  </script>
+</body>
+</html>

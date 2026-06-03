@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -108,22 +107,25 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("notifications");
+    rezoraConfigBanner();
 
     // Live simulated message log (from real reservation activity)
-    (function(){
+    (async function(){
       const typeLabel = {created:"Talep alındı", approved:"Onay mesajı", rejected:"Red bildirimi", completed:"Teşekkür mesajı"};
-      const msgs = RezoraDB.getMessages().slice(0,6);
       const wrap = document.getElementById("liveMsgs");
-      if(!msgs.length){ wrap.innerHTML = `<p class="muted" style="padding:16px 0">Henüz mesaj yok. Panelden bir rezervasyon onayla, burada anında görünsün.</p>`; return; }
+      const msgs = await Rezora.getMessages(6);
+      if(!msgs.length){ wrap.innerHTML = `<p class="muted" style="padding:16px 0">Henüz mesaj yok ya da görüntüleme yetkin yok. İşletme panelinden bir rezervasyon onayla, kendi mesaj kaydında anında görünsün.</p>`; return; }
       wrap.className = "msg-log";
-      wrap.innerHTML = msgs.map(m=>{
+      const rows = await Promise.all(msgs.map(async m=>{
         const t = new Date(m.sentAt);
-        const b = RezoraDB.getBusiness(m.bizId);
+        const b = await Rezora.getBusiness(m.bizId);
         return `<div class="msg-item">
           <div class="msg-ico">${ICON.whatsapp}</div>
           <div class="msg-body">
@@ -134,7 +136,8 @@
             <div class="msg-text">${m.text}</div>
           </div>
         </div>`;
-      }).join("");
+      }));
+      wrap.innerHTML = rows.join("");
     })();
 
     // WhatsApp conversation

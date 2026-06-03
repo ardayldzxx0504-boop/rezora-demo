@@ -165,8 +165,9 @@ function buildNav(active) {
         ${links.map(l => `<a href="${l.href}" class="${active===l.key?'active':''}">${l.label}</a>`).join("")}
       </div>
       <div class="nav-cta">
-        <a href="index.html#cta" class="btn btn-primary btn-sm btn-desktop">İşletmeni Ekle</a>
-        <button class="btn btn-logout btn-sm btn-desktop" onclick="rezoraLogout()" title="Demodan çıkış yap">${ICON.logout} Çıkış</button>
+        <a href="login.html" id="navLogin" class="btn btn-soft btn-sm btn-desktop">İşletme Girişi</a>
+        <a href="dashboard.html" id="navPanel" class="btn btn-primary btn-sm btn-desktop hidden">Panelim</a>
+        <button class="btn btn-logout btn-sm btn-desktop hidden" id="navLogout" onclick="rezoraLogout()" title="Çıkış yap">${ICON.logout} Çıkış</button>
         <button class="nav-toggle" id="navToggle" aria-label="Menü">${ICON.menu}</button>
       </div>
     </div>`;
@@ -185,8 +186,9 @@ function buildNav(active) {
       <button class="nav-toggle" id="drawerClose" aria-label="Kapat">${ICON.x}</button>
     </div>
     ${links.map(l => `<a href="${l.href}" class="${active===l.key?'active':''}">${l.label}</a>`).join("")}
-    <a href="index.html#cta" class="btn btn-primary btn-block" style="margin-top:16px">İşletmeni Ekle</a>
-    <button class="btn btn-logout btn-block" style="margin-top:10px" onclick="rezoraLogout()">${ICON.logout} Demodan çıkış yap</button>`;
+    <a href="login.html" id="drawerLogin" class="btn btn-soft btn-block" style="margin-top:16px">İşletme Girişi</a>
+    <a href="dashboard.html" id="drawerPanel" class="btn btn-primary btn-block hidden" style="margin-top:10px">Panelim</a>
+    <button class="btn btn-logout btn-block hidden" id="drawerLogout" style="margin-top:10px" onclick="rezoraLogout()">${ICON.logout} Çıkış yap</button>`;
   document.body.append(backdrop, drawer);
 
   const open = () => { drawer.classList.add("open"); backdrop.classList.add("open"); };
@@ -194,6 +196,8 @@ function buildNav(active) {
   document.getElementById("navToggle").addEventListener("click", open);
   document.getElementById("drawerClose").addEventListener("click", close);
   backdrop.addEventListener("click", close);
+
+  updateNavAuth();
 
   window.addEventListener("scroll", () => {
     nav.classList.toggle("scrolled", window.scrollY > 8);
@@ -277,6 +281,21 @@ function toast(msg, type) {
 const Store = {
   set(data) { try { sessionStorage.setItem("rezora_booking", JSON.stringify(data)); } catch(e){} },
   get() { try { return JSON.parse(sessionStorage.getItem("rezora_booking")) || {}; } catch(e){ return {}; } },
+};
+
+/* ----------------------------- Auth-aware nav ------------------------ */
+async function updateNavAuth() {
+  if (typeof Rezora === "undefined" || !Rezora.configured) return;
+  let session = null;
+  try { session = await Rezora.getSession(); } catch (e) {}
+  const toggle = (id, on) => { const el = document.getElementById(id); if (el) el.classList.toggle("hidden", !on); };
+  toggle("navLogin", !session);   toggle("drawerLogin", !session);
+  toggle("navPanel", !!session);  toggle("drawerPanel", !!session);
+  toggle("navLogout", !!session); toggle("drawerLogout", !!session);
+}
+window.rezoraLogout = async function () {
+  try { if (typeof Rezora !== "undefined") await Rezora.signOut(); } catch (e) {}
+  location.href = "index.html";
 };
 
 /* ----------------------------- Bootstrap ----------------------------- */

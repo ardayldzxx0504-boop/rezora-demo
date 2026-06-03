@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -112,17 +111,26 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("detail");
+    rezoraConfigBanner();
 
-    const allBiz = RezoraDB.getBusinesses();
-    const b = RezoraDB.getBusiness(qparam("id")) || allBiz[0];
     const sel = { service: null, dateIso: null, dateLabel: null, time: null };
-
+    let curIntervals = [];
     function svcPrice(s){ return (s.price===null||s.price===undefined||s.price==="") ? null : s.price; }
+
+    (async()=>{
+    const all = await Rezora.getBusinesses();
+    const b = (await Rezora.getBusiness(qparam("id"))) || all[0];
+    if(!b){
+      document.getElementById("hName").textContent = "İşletme bulunamadı";
+      buildFooter(); return;
+    }
 
     document.title = b.name + " — Rezora";
     document.getElementById("bcName").textContent = b.name;
@@ -131,7 +139,7 @@
     document.getElementById("hRating").innerHTML = `<span class="stars">★</span> ${b.rating} <span class="count">(${b.reviews} değerlendirme)</span>`;
     document.getElementById("hLoc").innerHTML = `${ICON.pin} ${b.city} · ${b.area||""}`;
     document.getElementById("hDesc").textContent = b.desc;
-    const startP = RezoraDB.startingPrice(b);
+    const startP = Rezora.startingPrice(b);
     document.getElementById("cardPrice").textContent = startP!==null ? money(startP) : "Fiyat işletmede";
     document.getElementById("cardRating").innerHTML = `<span class="stars">★</span> ${b.rating}`;
 
@@ -166,10 +174,12 @@
         </div>`;
       }).join("");
       document.querySelectorAll(".svc-item").forEach(el=>el.addEventListener("click",()=>{
-        sel.service = el.dataset.svc; renderServices(); updateSummary();
+        sel.service = el.dataset.svc; renderServices(); renderTimes(); updateSummary();
       }));
     }
     renderServices();
+
+    function selDur(){ const s = svcById(sel.service); return s ? s.dur : b.slotMinutes; }
 
     // dates (only working days enabled)
     const dates = genDates(14, b.workingDays);
@@ -179,20 +189,24 @@
         <div class="dp-num">${d.num}</div>
         <div class="dp-mon">${d.mon}</div>
       </button>`).join("");
-    document.querySelectorAll(".date-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
+    document.querySelectorAll(".date-pill:not(.disabled)").forEach(el=>el.addEventListener("click",async ()=>{
       sel.dateIso = el.dataset.iso; sel.dateLabel = el.dataset.label; sel.time = null;
       document.querySelectorAll(".date-pill").forEach(p=>p.classList.remove("active"));
       el.classList.add("active");
+      curIntervals = await Rezora.getTakenIntervals(b.id, sel.dateIso);
       renderTimes(); updateSummary();
     }));
 
-    // times (generated from hours; taken slots disabled per selected date)
+    // times (generated from hours; slots that overlap with the selected service duration are disabled)
     const hours = genTimes(b.openTime, b.closeTime, b.slotMinutes);
     function renderTimes(){
-      const taken = sel.dateIso ? RezoraDB.getTakenTimes(b.id, sel.dateIso) : [];
-      document.getElementById("timeHint").textContent = sel.dateLabel ? `${sel.dateLabel} için müsait saatler (dolu saatler pasiftir):` : "Önce bir tarih seçin.";
+      document.getElementById("timeHint").textContent = sel.dateIso
+        ? `${sel.dateLabel} için müsait saatler (seçili hizmet süresine göre dolu saatler pasiftir):`
+        : "Önce bir tarih seçin.";
+      const dur = selDur();
       document.getElementById("timeRow").innerHTML = hours.map(h=>{
-        const isBooked = taken.indexOf(h) !== -1;
+        const free = sel.dateIso ? Rezora.slotIsFree(h, dur, curIntervals, b.closeTime) : false;
+        const isBooked = sel.dateIso && !free;
         return `<button class="time-pill ${isBooked?'disabled':''} ${sel.time===h?'active':''}" data-time="${h}" ${(!sel.dateIso||isBooked)?'disabled':''}>${h}</button>`;
       }).join("");
       document.querySelectorAll(".time-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
@@ -238,6 +252,7 @@
       </div>`).join("") : `<p class="muted">Henüz yorum yok.</p>`;
 
     initReveal();
+    })();
     buildFooter();
   </script>
 </body>

@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -47,31 +46,36 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("");
 
-    const rid = Store.get().reservationId;
-    const r = (rid && RezoraDB.getReservation(rid)) || null;
-    const b = r ? RezoraDB.getBusiness(r.bizId) : RezoraDB.getBusiness("elite-barber");
+    const data = Store.get();
+    const r = data.reservation || null;
 
     // fallback if visited directly without a booking
     const d = r || {
-      id: "RZ-2042", bizId: "elite-barber", serviceName: "Saç + Sakal Paketi",
+      id: "RZ-DEMO", serviceName: "Saç + Sakal Paketi",
       dateLabel: "12 Haz", time: "15:00", price: 500, name: "Arda Demir", phone: "+90 533 000 00 00",
     };
+    const bizName = data.bizName || d.bizName || "Elite Barber";
+    const bizCity = data.bizCity || "";
+    const b = { name: bizName, city: bizCity, area: data.bizArea || "" };
+    const shortId = String(d.id || "RZ-DEMO").slice(0, 8).toUpperCase();
     const priceTxt = (d.price === null || d.price === undefined || d.price === "") ? "İşletmede" : money(d.price);
 
     document.querySelector(".success-check").innerHTML = ICON.check;
-    document.getElementById("codeBadge").innerHTML = `<span class="dot"></span> ${d.id}`;
-    document.getElementById("codeInline").textContent = d.id;
+    document.getElementById("codeBadge").innerHTML = `<span class="dot"></span> ${shortId}`;
+    document.getElementById("codeInline").textContent = shortId;
 
     const rows = [
-      ["İşletme", (b ? b.name + " · " + b.city : d.bizName || "")],
+      ["İşletme", bizName + (bizCity ? " · " + bizCity : "")],
       ["Hizmet", d.serviceName],
-      ["Tarih", d.dateLabel || labelFromIso(d.date)],
+      ["Tarih", d.dateLabel || (d.date ? labelFromIso(d.date) : "—")],
       ["Saat", d.time],
       ["Ad Soyad", d.name],
       ["Telefon", d.phone],
@@ -83,7 +87,7 @@
       </div>`;
 
     // auto-generated WhatsApp message (simulation)
-    const waText = RezoraDB.previewMessage("created", d, b);
+    const waText = Rezora.previewMessage("created", d, b);
     document.getElementById("waPreview").innerHTML =
       `<span class="wa-brand">Rezora</span><br>${waText}
        <div class="wa-time">şimdi <span class="tick">✓✓</span></div>`;

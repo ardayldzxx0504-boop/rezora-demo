@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -30,6 +29,7 @@
           <a href="#" data-view="services"><span>Hizmetler</span></a>
           <a href="#" data-view="messages"><span>Mesajlar</span></a>
           <a href="notifications.html"><span>Bildirim Şablonları</span></a>
+          <a href="admin.html" id="adminLink" class="hidden"><span>Admin Paneli</span></a>
         </nav>
         <div class="pro-box" style="margin-top:24px;padding:16px;background:var(--purple-50);border:1px solid var(--purple-100);border-radius:var(--radius)">
           <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem">Pro plan aktif</div>
@@ -164,13 +164,15 @@
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("dashboard");
+    rezoraConfigBanner();
 
-    const PANEL_KEY = "rezora_panel_biz";
     const navIcons = ["grid","settings","scissors","whatsapp","bell"];
     document.querySelectorAll("#dashNav a").forEach((a,i)=>a.insertAdjacentHTML("afterbegin", ICON[navIcons[i]]));
     document.getElementById("bellBtn").insertAdjacentHTML("afterbegin", ICON.bell);
@@ -182,29 +184,18 @@
       rejected:  {label:"Reddedildi",    cls:"badge-red"},
     };
 
-    let bizId = localStorage.getItem(PANEL_KEY) || "elite-barber";
-    let biz = RezoraDB.getBusiness(bizId) || RezoraDB.getBusinesses()[0];
-    bizId = biz.id;
-    let filter = "all";
-
-    // business selector
-    const bizSelect = document.getElementById("bizSelect");
-    bizSelect.innerHTML = RezoraDB.getBusinesses().map(b=>`<option value="${b.id}" ${b.id===bizId?'selected':''}>${b.name} · ${b.city}</option>`).join("");
-    bizSelect.addEventListener("change", e=>{
-      bizId = e.target.value; localStorage.setItem(PANEL_KEY, bizId);
-      biz = RezoraDB.getBusiness(bizId);
-      refreshAll();
-    });
-
-    // today label
-    (function(){
-      const d = new Date();
-      document.getElementById("todayLabel").textContent =
-        `İşte ${biz.name}'ın bugünkü özeti — ${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${TR_DAYS_FULL[d.getDay()]}`;
-    })();
-
-    function initials(name){ return name.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+    function isoDate(d){ const z=new Date(d); z.setMinutes(z.getMinutes()-z.getTimezoneOffset()); return z.toISOString().slice(0,10); }
+    function initials(name){ return (name||"?").split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
     function priceTxt(p){ return (p===null||p===undefined||p==="") ? "İşletmede" : money(p); }
+
+    let biz = null, bizId = null, filter = "all";
+    let allBiz = [], resList = [], msgList = [];
+
+    const bizSelect = document.getElementById("bizSelect");
+    bizSelect.addEventListener("change", async e=>{
+      bizId = e.target.value; biz = allBiz.find(b=>b.id===bizId);
+      await refreshAll();
+    });
 
     /* ---------- view switching ---------- */
     document.querySelectorAll("#dashNav a[data-view]").forEach(a=>a.addEventListener("click",(e)=>{
@@ -226,17 +217,19 @@
       document.getElementById("dbSub").textContent = `${biz.city} · ${biz.categoryName}`;
       document.getElementById("greeting").textContent = `${biz.name} 👋`;
       document.getElementById("viewPublic").href = "business.html?id="+biz.id;
+      const d = new Date();
+      document.getElementById("todayLabel").textContent =
+        `İşte ${biz.name} için bugünkü özet — ${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${TR_DAYS_FULL[d.getDay()]}`;
     }
 
     /* ---------- KPIs ---------- */
     function renderKpi(){
-      const list = RezoraDB.getReservationsByBusiness(bizId);
-      const today = RezoraDB.isoDate(new Date());
+      const list = resList;
+      const today = isoDate(new Date());
       const todayCount = list.filter(r=>r.date===today && r.status!=="rejected").length;
       const pending = list.filter(r=>r.status==="pending").length;
       const completed = list.filter(r=>r.status==="completed");
       const revenue = completed.reduce((a,r)=>a+(r.price||0),0);
-      // this week (next/last 7 days window around today by weekday counts)
       const week = weeklyCounts(list).reduce((a,v)=>a+v,0);
 
       const cards = [
@@ -264,7 +257,7 @@
       const labels = [];
       for(let i=0;i<7;i++){
         const d = new Date(); d.setDate(d.getDate()+i);
-        const iso = RezoraDB.isoDate(d);
+        const iso = isoDate(d);
         labels.push(TR_DAYS[d.getDay()]);
         counts.push(list.filter(r=>r.date===iso && r.status!=="rejected").length);
       }
@@ -272,7 +265,7 @@
       return counts;
     }
     function renderChart(){
-      const list = RezoraDB.getReservationsByBusiness(bizId);
+      const list = resList;
       const counts = weeklyCounts(list);
       const labels = weeklyCounts._labels;
       const max = Math.max(1, ...counts);
@@ -287,7 +280,7 @@
 
     /* ---------- reservations table ---------- */
     function renderTable(){
-      const list = RezoraDB.getReservationsByBusiness(bizId)
+      const list = resList
         .filter(r=> filter==="all" ? true : r.status===filter)
         .sort((a,b)=> (a.date+a.time) < (b.date+b.time) ? -1 : 1);
 
@@ -312,14 +305,14 @@
       }).join("") || `<tr><td colspan="6" class="center muted" style="padding:40px">Bu filtrede rezervasyon yok.</td></tr>`;
     }
 
-    window.act = function(id, status){
-      const res = RezoraDB.setStatus(id, status);
-      if(!res.ok){ toast(res.error,"bell"); return; }
+    window.act = async function(id, status){
+      const res = await Rezora.setStatus(id, status);
+      if(!res.ok){ toast(res.error || "İşlem başarısız","bell"); return; }
       const name = res.reservation.name;
       if(status==="approved") toast(`${name} onaylandı · WhatsApp mesajı gönderildi ✓`,"ok");
       if(status==="rejected") toast(`${name} reddedildi · müşteri bilgilendirildi`,"bell");
       if(status==="completed") toast(`${name} tamamlandı olarak işaretlendi`,"ok");
-      refreshAll();
+      await refreshAll();
     };
 
     document.querySelectorAll("#resTabs .chip").forEach(c=>c.addEventListener("click",()=>{
@@ -330,8 +323,8 @@
 
     /* ---------- schedule ---------- */
     function renderSchedule(){
-      const today = RezoraDB.isoDate(new Date());
-      const list = RezoraDB.getReservationsByBusiness(bizId)
+      const today = isoDate(new Date());
+      const list = resList
         .filter(r=>r.date===today && r.status!=="rejected")
         .sort((a,b)=>a.time.localeCompare(b.time));
       document.getElementById("schedule").innerHTML = list.map(r=>`
@@ -359,10 +352,10 @@
         `<button type="button" class="day-pill ${(biz.workingDays||[]).indexOf(d)!==-1?'on':''}" data-day="${d}">${TR_DAYS[d]}</button>`).join("");
       document.querySelectorAll("#dayToggle .day-pill").forEach(p=>p.addEventListener("click",()=>p.classList.toggle("on")));
     }
-    document.getElementById("profileForm").addEventListener("submit",(e)=>{
+    document.getElementById("profileForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const days = Array.from(document.querySelectorAll("#dayToggle .day-pill.on")).map(p=>+p.dataset.day);
-      biz = RezoraDB.updateBusiness(bizId, {
+      const updated = await Rezora.updateBusiness(bizId, {
         name: document.getElementById("pName").value.trim(),
         city: document.getElementById("pCity").value.trim(),
         phone: document.getElementById("pPhone").value.trim(),
@@ -372,10 +365,12 @@
         slotMinutes: +document.getElementById("pSlot").value,
         workingDays: days,
       });
-      // refresh the selector label too
-      bizSelect.querySelector(`option[value="${bizId}"]`).textContent = `${biz.name} · ${biz.city}`;
+      if(!updated){ toast("Kaydedilemedi (yetki/RLS)","bell"); return; }
+      biz = updated;
+      const opt = bizSelect.querySelector(`option[value="${bizId}"]`);
+      if(opt) opt.textContent = `${biz.name} · ${biz.city}`;
       toast("İşletme bilgileri kaydedildi ✓","ok");
-      refreshAll();
+      await refreshAll();
     });
 
     /* ---------- services ---------- */
@@ -390,20 +385,24 @@
           <button class="icon-btn no" title="Sil" onclick="delSvc('${s.id}')">${ICON.x}</button>
         </div>`).join("") : `<p class="muted">Henüz hizmet eklenmemiş.</p>`;
     }
-    window.delSvc = function(id){
-      biz = RezoraDB.removeService(bizId, id);
+    window.delSvc = async function(id){
+      const res = await Rezora.removeService(id);
+      if(!res.ok){ toast(res.error || "Silinemedi","bell"); return; }
+      biz = await Rezora.getBusiness(bizId);
       toast("Hizmet silindi","bell");
       renderSvcEdit();
     };
-    document.getElementById("svcAddForm").addEventListener("submit",(e)=>{
+    document.getElementById("svcAddForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const name = document.getElementById("nsName").value.trim();
       if(!name){ toast("Hizmet adı gir","bell"); return; }
-      biz = RezoraDB.addService(bizId, {
+      const res = await Rezora.addService(bizId, {
         name,
         dur: document.getElementById("nsDur").value,
         price: document.getElementById("nsPrice").value,
       });
+      if(!res.ok){ toast(res.error || "Eklenemedi","bell"); return; }
+      biz = await Rezora.getBusiness(bizId);
       e.target.reset();
       document.getElementById("nsDur").value = 30;
       toast("Hizmet eklendi ✓","ok");
@@ -412,7 +411,7 @@
 
     /* ---------- messages log ---------- */
     function renderMessages(){
-      const msgs = RezoraDB.getMessagesByBusiness(bizId);
+      const msgs = msgList;
       const typeLabel = {created:"Talep alındı", approved:"Onay mesajı", rejected:"Red bildirimi", completed:"Teşekkür mesajı"};
       document.getElementById("msgLog").innerHTML = msgs.length ? msgs.map(m=>{
         const t = new Date(m.sentAt);
@@ -432,19 +431,56 @@
     window.markRead = function(){ toast("Tüm bildirimler okundu","bell"); };
 
     /* ---------- refresh ---------- */
-    function refreshAll(){
+    async function refreshAll(){
+      if(!biz) return;
+      resList = await Rezora.getReservationsByBusiness(bizId);
+      msgList = await Rezora.getMessagesByBusiness(bizId);
       renderBizHeader();
       renderKpi();
       renderTable();
       renderChart();
       renderSchedule();
-      // refresh whichever non-overview view is active
       if(document.querySelector('.dash-view[data-view="profile"]').classList.contains("active")) fillProfile();
       if(document.querySelector('.dash-view[data-view="services"]').classList.contains("active")) renderSvcEdit();
       if(document.querySelector('.dash-view[data-view="messages"]').classList.contains("active")) renderMessages();
     }
 
-    refreshAll();
+    (async()=>{
+      if(!Rezora.configured){
+        document.getElementById("greeting").textContent = "Supabase yapılandırılmadı";
+        document.getElementById("todayLabel").textContent = "assets/js/supabase-config.js dosyasına Project URL + anon key girin ve supabase/schema.sql dosyasını çalıştırın.";
+        return;
+      }
+      const session = await Rezora.getSession();
+      if(!session){ location.href = "login.html"; return; }
+
+      const admin = await Rezora.isAdmin();
+      if(admin){
+        allBiz = await Rezora.getAllBusinesses();
+        bizSelect.innerHTML = allBiz.map(b=>`<option value="${b.id}">${b.name} · ${b.city}${b.status!=='approved'?' ('+b.status+')':''}</option>`).join("");
+        const link = document.getElementById("adminLink"); if(link) link.classList.remove("hidden");
+      } else {
+        const mine = await Rezora.getMyBusiness();
+        allBiz = mine ? [mine] : [];
+        const wrap = bizSelect.closest(".dash-select") || bizSelect.parentElement;
+        if(wrap) wrap.style.display = "none";
+      }
+
+      if(!allBiz.length){
+        document.getElementById("greeting").textContent = admin ? "Henüz işletme yok" : "İşletmen hazırlanıyor";
+        document.getElementById("todayLabel").textContent = admin
+          ? "Admin panelinden yeni işletme ekleyebilirsiniz."
+          : "İşletme kaydın admin onayı bekliyor olabilir. Onaylandığında burada görünecek.";
+        return;
+      }
+
+      bizId = allBiz[0].id; biz = allBiz[0];
+      await refreshAll();
+
+      if(allBiz[0].status === "pending"){
+        toast("İşletmen onay bekliyor — onaylanınca müşterilere görünür olacak.", "bell");
+      }
+    })();
     buildFooter();
   </script>
 </body>

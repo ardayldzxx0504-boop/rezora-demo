@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -114,11 +113,14 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("home");
+    rezoraConfigBanner();
     const ACTIVE_CATS = ["barber","salon"];
 
     // Hero search
@@ -139,34 +141,7 @@
         <button class="btn btn-primary" type="submit">Ara</button>
       </form>`;
 
-    // Hero visual
-    const eb = RezoraDB.getBusiness("elite-barber") || RezoraDB.getBusinesses()[0];
-    document.getElementById("heroVisual").innerHTML = `
-      <div class="hero-card-main">
-        <div class="hc-img" style="${imgStyle(eb.img, 700)}"></div>
-        <div class="hc-body">
-          <div class="flex items-center justify-between">
-            <span class="badge badge-purple">${eb.categoryName}</span>
-            <span class="rating"><span class="stars">★</span> ${eb.rating} <span class="count">(${eb.reviews})</span></span>
-          </div>
-          <h4 style="margin-top:12px">${eb.name}</h4>
-          <div class="biz-meta" style="margin-top:6px">${ICON.pin} ${eb.city} · ${eb.area}</div>
-          <div class="hc-row">
-            <div style="display:flex;gap:6px">
-              <span class="badge badge-green"><span class="dot"></span> Bugün müsait</span>
-            </div>
-            <a href="business.html?id=elite-barber" class="btn btn-dark btn-sm">Randevu al</a>
-          </div>
-        </div>
-      </div>
-      <div class="float-card float-1">
-        <div class="fc-ico" style="background:var(--green-50);color:var(--green-500)">${ICON.checkCircle}</div>
-        <div><div class="fc-t">Onaylandı ✓</div><div class="fc-s">12 Haziran · 15:00</div></div>
-      </div>
-      <div class="float-card float-2">
-        <div class="fc-ico" style="background:#e7f9ee;color:#25D366">${ICON.whatsapp}</div>
-        <div><div class="fc-t">WhatsApp bildirimi</div><div class="fc-s">Randevun hazır!</div></div>
-      </div>`;
+    // Hero visual + featured are filled asynchronously from Supabase (see below)
 
     // Categories (Berber & Kuaför live; others marked "Yakında")
     document.getElementById("catGrid").innerHTML = REZORA.categories.map((c,i)=>{
@@ -179,9 +154,41 @@
       </a>`;
     }).join("");
 
-    // Featured — live businesses from the store
-    const featured = RezoraDB.getBusinesses();
-    document.getElementById("featuredGrid").innerHTML = featured.map((b,i)=>bizCard(b, i)).join("");
+    // Hero visual + featured businesses from Supabase
+    (async()=>{
+      const all = await Rezora.getBusinesses();
+      const eb = all[0];
+      if(eb){
+        document.getElementById("heroVisual").innerHTML = `
+          <div class="hero-card-main">
+            <div class="hc-img" style="${imgStyle(eb.img, 700)}"></div>
+            <div class="hc-body">
+              <div class="flex items-center justify-between">
+                <span class="badge badge-purple">${eb.categoryName}</span>
+                <span class="rating"><span class="stars">★</span> ${eb.rating} <span class="count">(${eb.reviews})</span></span>
+              </div>
+              <h4 style="margin-top:12px">${eb.name}</h4>
+              <div class="biz-meta" style="margin-top:6px">${ICON.pin} ${eb.city} · ${eb.area}</div>
+              <div class="hc-row">
+                <div style="display:flex;gap:6px">
+                  <span class="badge badge-green"><span class="dot"></span> Bugün müsait</span>
+                </div>
+                <a href="business.html?id=${eb.id}" class="btn btn-dark btn-sm">Randevu al</a>
+              </div>
+            </div>
+          </div>
+          <div class="float-card float-1">
+            <div class="fc-ico" style="background:var(--green-50);color:var(--green-500)">${ICON.checkCircle}</div>
+            <div><div class="fc-t">Onaylandı ✓</div><div class="fc-s">Bugün · 15:00</div></div>
+          </div>
+          <div class="float-card float-2">
+            <div class="fc-ico" style="background:#e7f9ee;color:#25D366">${ICON.whatsapp}</div>
+            <div><div class="fc-t">WhatsApp bildirimi</div><div class="fc-s">Randevun hazır!</div></div>
+          </div>`;
+      }
+      document.getElementById("featuredGrid").innerHTML = all.map((b,i)=>bizCard(b, i)).join("");
+      initReveal();
+    })();
 
     // How it works
     const how = [

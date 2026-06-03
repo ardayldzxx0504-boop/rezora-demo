@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Paneli — Rezora</title>
+  <meta name="description" content="Rezora yönetim paneli — işletme onaylama, ekleme ve silme.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</head>
+<body>
+  <main>
+    <div class="container" style="padding:110px 0 60px">
+      <div id="guardMsg" class="hidden" style="text-align:center;padding:60px 0">
+        <h2 id="guardTitle">Yetki gerekli</h2>
+        <p class="muted" id="guardText" style="margin-top:10px"></p>
+        <a href="login.html" class="btn btn-primary" style="margin-top:18px">Giriş yap</a>
+      </div>
+
+      <div id="adminBody" class="hidden">
+        <div class="section-head" style="margin-bottom:24px">
+          <div>
+            <span class="eyebrow">Yönetim</span>
+            <h1 style="font-size:1.9rem;margin-top:6px">Admin Paneli</h1>
+            <p class="muted" style="margin-top:6px">İşletmeleri onayla, ekle veya kaldır.</p>
+          </div>
+          <a href="dashboard.html" class="btn btn-soft btn-sm">← Panele dön</a>
+        </div>
+
+        <div class="kpi-grid" id="adminKpi" style="margin-bottom:24px"></div>
+
+        <div class="grid gap-16" style="grid-template-columns:1fr;align-items:start">
+          <!-- ADD BUSINESS -->
+          <div class="panel">
+            <div class="panel-head"><h3>Yeni İşletme Ekle</h3></div>
+            <form id="addForm" style="padding:20px 22px">
+              <div class="field-group"><label>İşletme adı</label><input class="input" id="aName" type="text" required></div>
+              <div class="form-grid">
+                <div class="field-group"><label>Kategori</label>
+                  <select class="input" id="aCat"><option value="barber">Berber</option><option value="salon">Kuaför</option></select>
+                </div>
+                <div class="field-group"><label>Şehir</label><input class="input" id="aCity" type="text" required></div>
+                <div class="field-group"><label>Bölge / adres</label><input class="input" id="aArea" type="text"></div>
+                <div class="field-group"><label>Telefon</label><input class="input" id="aPhone" type="tel" placeholder="+90 ..."></div>
+                <div class="field-group"><label>Açılış</label><input class="input" id="aOpen" type="time" value="10:00"></div>
+                <div class="field-group"><label>Kapanış</label><input class="input" id="aClose" type="time" value="20:00"></div>
+                <div class="field-group"><label>Randevu aralığı (dk)</label>
+                  <select class="input" id="aSlot"><option>15</option><option selected>30</option><option>45</option><option>60</option></select>
+                </div>
+              </div>
+              <button class="btn btn-primary" type="submit" style="margin-top:16px">İşletme ekle (onaylı)</button>
+            </form>
+          </div>
+
+          <!-- BUSINESS LIST -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3>İşletmeler</h3>
+              <div class="flex gap-8 flex-wrap" id="adminTabs">
+                <button class="chip active" data-filter="all" style="padding:7px 14px;font-size:.82rem">Tümü</button>
+                <button class="chip" data-filter="pending" style="padding:7px 14px;font-size:.82rem">Onay bekleyen</button>
+                <button class="chip" data-filter="approved" style="padding:7px 14px;font-size:.82rem">Onaylı</button>
+                <button class="chip" data-filter="rejected" style="padding:7px 14px;font-size:.82rem">Reddedilen</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="rtable">
+                <thead><tr><th>İşletme</th><th>Kategori</th><th>Şehir</th><th>Durum</th><th>İşlem</th></tr></thead>
+                <tbody id="bizBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    initLayout("");
+    rezoraConfigBanner();
+
+    const statusMap = {
+      pending:  {label:"Onay bekliyor", cls:"badge-amber"},
+      approved: {label:"Onaylı",        cls:"badge-green"},
+      rejected: {label:"Reddedildi",    cls:"badge-red"},
+    };
+    let all = [], filter = "all";
+
+    function showGuard(title, text){
+      document.getElementById("guardTitle").textContent = title;
+      document.getElementById("guardText").textContent = text;
+      document.getElementById("guardMsg").classList.remove("hidden");
+    }
+
+    function renderKpi(){
+      const total = all.length;
+      const pending = all.filter(b=>b.status==="pending").length;
+      const approved = all.filter(b=>b.status==="approved").length;
+      const cards = [
+        {bg:"var(--purple-50)", fg:"var(--purple-700)", val:total, lbl:"Toplam işletme"},
+        {bg:"var(--amber-50)", fg:"#b45309", val:pending, lbl:"Onay bekleyen"},
+        {bg:"var(--green-50)", fg:"#047857", val:approved, lbl:"Yayında"},
+      ];
+      document.getElementById("adminKpi").innerHTML = cards.map(k=>`
+        <div class="kpi"><div class="k-val" style="color:${k.fg}">${k.val}</div><div class="k-lbl">${k.lbl}</div></div>`).join("");
+    }
+
+    function renderTable(){
+      const list = all.filter(b=> filter==="all" ? true : b.status===filter);
+      document.getElementById("bizBody").innerHTML = list.map(b=>{
+        const st = statusMap[b.status] || statusMap.pending;
+        let actions = "";
+        if(b.status!=="approved") actions += `<button class="icon-btn ok" title="Onayla" onclick="setStatus('${b.id}','approved')">${ICON.check}</button>`;
+        if(b.status!=="rejected") actions += `<button class="icon-btn no" title="Reddet" onclick="setStatus('${b.id}','rejected')">${ICON.x}</button>`;
+        actions += `<button class="icon-btn no" title="Sil" onclick="delBiz('${b.id}','${(b.name||'').replace(/'/g,"")}')">${ICON.trash||ICON.x}</button>`;
+        return `<tr>
+          <td><div style="font-weight:700">${b.name}</div><div class="cphone">${b.area||''}</div></td>
+          <td>${b.categoryName}</td>
+          <td>${b.city||'—'}</td>
+          <td><span class="badge ${st.cls}"><span class="dot"></span> ${st.label}</span></td>
+          <td><div class="row-actions">${actions}</div></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="5" class="center muted" style="padding:36px">Bu filtrede işletme yok.</td></tr>`;
+    }
+
+    window.setStatus = async function(id, status){
+      const res = await Rezora.setBusinessStatus(id, status);
+      if(!res){ toast("Güncellenemedi (yetki/RLS)","bell"); return; }
+      toast(status==="approved" ? "İşletme onaylandı ✓" : "İşletme reddedildi","ok");
+      await load();
+    };
+    window.delBiz = async function(id, name){
+      if(!confirm(`"${name}" işletmesini silmek istediğine emin misin? Bu işlem geri alınamaz.`)) return;
+      const res = await Rezora.deleteBusiness(id);
+      if(!res.ok){ toast(res.error || "Silinemedi","bell"); return; }
+      toast("İşletme silindi","bell");
+      await load();
+    };
+
+    document.querySelectorAll("#adminTabs .chip").forEach(c=>c.addEventListener("click",()=>{
+      filter = c.dataset.filter;
+      document.querySelectorAll("#adminTabs .chip").forEach(x=>x.classList.remove("active"));
+      c.classList.add("active"); renderTable();
+    }));
+
+    document.getElementById("addForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const created = await Rezora.createBusiness({
+        name: document.getElementById("aName").value.trim(),
+        category: document.getElementById("aCat").value,
+        city: document.getElementById("aCity").value.trim(),
+        area: document.getElementById("aArea").value.trim(),
+        phone: document.getElementById("aPhone").value.trim(),
+        openTime: document.getElementById("aOpen").value || "10:00",
+        closeTime: document.getElementById("aClose").value || "20:00",
+        slotMinutes: +document.getElementById("aSlot").value,
+        status: "approved",
+      });
+      if(!created.ok){ toast(created.error || "Eklenemedi","bell"); return; }
+      e.target.reset();
+      document.getElementById("aOpen").value="10:00"; document.getElementById("aClose").value="20:00";
+      toast("İşletme eklendi ve yayına alındı ✓","ok");
+      await load();
+    });
+
+    async function load(){
+      all = await Rezora.getAllBusinesses();
+      renderKpi(); renderTable();
+    }
+
+    (async()=>{
+      if(!Rezora.configured){ showGuard("Supabase yapılandırılmadı", "assets/js/supabase-config.js dosyasına Project URL + anon key girin ve supabase/schema.sql dosyasını çalıştırın."); return; }
+      const session = await Rezora.getSession();
+      if(!session){ location.href = "login.html"; return; }
+      const admin = await Rezora.isAdmin();
+      if(!admin){ showGuard("Bu alana erişim yetkin yok", "Admin paneli yalnızca yönetici hesapları içindir."); return; }
+      document.getElementById("adminBody").classList.remove("hidden");
+      await load();
+    })();
+
+    buildFooter();
+  </script>
+</body>
+</html>

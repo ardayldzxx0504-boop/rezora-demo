@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -103,27 +102,35 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("");
+    rezoraConfigBanner();
 
     const pre = Store.get();
-    const allBiz = RezoraDB.getBusinesses();
-    const b = RezoraDB.getBusiness(pre.bizId) || allBiz[0];
-    const services = b.services || [];
-    function svcPrice(s){ return (s.price===null||s.price===undefined||s.price==="") ? null : s.price; }
-
     const sel = {
       service: pre.serviceId || null,
       dateIso: pre.dateIso || null,
       dateLabel: pre.date || null,
       time: pre.time || null,
     };
+    let curIntervals = [];
+    function svcPrice(s){ return (s.price===null||s.price===undefined||s.price==="") ? null : s.price; }
 
     document.getElementById("nameWrap").insertAdjacentHTML("afterbegin", ICON.user);
     document.getElementById("phoneWrap").insertAdjacentHTML("afterbegin", ICON.phone);
+
+    (async()=>{
+    const all = await Rezora.getBusinesses();
+    const b = (await Rezora.getBusiness(pre.bizId)) || all[0];
+    if(!b){ document.getElementById("bizSub").textContent = "İşletme bulunamadı"; buildFooter(); return; }
+    const services = b.services || [];
+    function svcById(id){ return services.find(s=>s.id===id); }
+    function selDur(){ const s = svcById(sel.service); return s ? s.dur : b.slotMinutes; }
 
     document.getElementById("bizSub").textContent = `${b.name} · ${b.city}${b.area?(' · '+b.area):''}`;
     document.getElementById("bcBiz").textContent = b.name;
@@ -158,9 +165,10 @@
       </button>`).join("");
     const hours = genTimes(b.openTime, b.closeTime, b.slotMinutes);
     function renderTimes(){
-      const taken = sel.dateIso ? RezoraDB.getTakenTimes(b.id, sel.dateIso) : [];
+      const dur = selDur();
       document.getElementById("timeRow").innerHTML = hours.map(h=>{
-        const isBooked = taken.indexOf(h) !== -1;
+        const free = sel.dateIso ? Rezora.slotIsFree(h, dur, curIntervals, b.closeTime) : false;
+        const isBooked = sel.dateIso && !free;
         return `<button class="time-pill ${isBooked?'disabled':''} ${sel.time===h?'active':''}" data-time="${h}" ${(!sel.dateIso||isBooked)?'disabled':''}>${h}</button>`;
       }).join("");
       document.querySelectorAll("#timeRow .time-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
@@ -171,19 +179,21 @@
       }));
     }
     function bindDates(){
-      document.querySelectorAll("#dateRow .date-pill:not(.disabled)").forEach(el=>el.addEventListener("click",()=>{
+      document.querySelectorAll("#dateRow .date-pill:not(.disabled)").forEach(el=>el.addEventListener("click",async ()=>{
         sel.dateIso = el.dataset.iso; sel.dateLabel = el.dataset.label; sel.time = null;
         document.querySelectorAll("#dateRow .date-pill").forEach(p=>p.classList.remove("active"));
         el.classList.add("active");
+        curIntervals = await Rezora.getTakenIntervals(b.id, sel.dateIso);
         renderTimes(); document.getElementById("next2").disabled = true;
       }));
     }
-    bindDates(); renderTimes();
+    bindDates();
+    if(sel.dateIso) curIntervals = await Rezora.getTakenIntervals(b.id, sel.dateIso);
+    renderTimes();
     if(sel.dateIso && sel.time) document.getElementById("next2").disabled = false;
 
     // Steps navigation
     let current = 1;
-    function svcById(id){ return services.find(s=>s.id===id); }
     function goStep(n){
       current = n;
       document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("hidden", +p.dataset.pane!==n));
@@ -214,8 +224,8 @@
     if(sel.service) document.getElementById("next1").disabled = false;
     goStep(1);
 
-    // Submit -> create reservation with conflict control
-    document.getElementById("infoForm").addEventListener("submit",(e)=>{
+    // Submit -> create reservation with duration-based conflict control
+    document.getElementById("infoForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
       const name = document.getElementById("fName").value.trim();
       const phone = document.getElementById("fPhone").value.trim();
@@ -225,9 +235,9 @@
       const btn = document.getElementById("submitBtn");
       btn.disabled = true; btn.textContent = "Gönderiliyor...";
 
-      const res = RezoraDB.createReservation({
-        bizId: b.id, serviceId: s.id,
-        date: sel.dateIso, dateLabel: sel.dateLabel, time: sel.time,
+      const res = await Rezora.createReservation({
+        bizId: b.id, serviceId: s.id, serviceName: s.name, durationMin: s.dur, price: svcPrice(s),
+        date: sel.dateIso, time: sel.time,
         name, phone, note: document.getElementById("fNote").value.trim(),
       });
 
@@ -235,16 +245,18 @@
         btn.disabled = false; btn.textContent = "Rezervasyonu oluştur ✓";
         toast(res.error || "Bir hata oluştu", "bell");
         // refresh availability and bounce user back to time step
+        curIntervals = await Rezora.getTakenIntervals(b.id, sel.dateIso);
         goStep(2); sel.time = null; renderTimes();
         document.getElementById("next2").disabled = true;
         return;
       }
 
-      Store.set({ reservationId: res.reservation.id });
+      Store.set({ reservationId: res.reservation.id, reservation: res.reservation, bizName: b.name, bizCity: b.city, bizArea: b.area });
       setTimeout(()=>{ location.href = "success.html"; }, 650);
     });
 
     buildFooter();
+    })();
   </script>
 </body>
 </html>

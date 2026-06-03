@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
-  <script src="assets/js/gate.js"></script>
 </head>
 <body>
   <main>
@@ -49,15 +48,15 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/store.js"></script>
   <script src="assets/js/app.js"></script>
   <script>
     initLayout("businesses");
+    rezoraConfigBanner();
 
-    const ALL_BIZ = RezoraDB.getBusinesses();
-    const CITIES = Array.from(new Set(ALL_BIZ.map(b=>b.city)));
-    // MVP: only Berber & Kuaför are live
     const ACTIVE_CATS = [
       {id:"all",    name:"Tümü",  icon:"grid"},
       {id:"barber", name:"Berber",icon:"scissors"},
@@ -65,50 +64,45 @@
     ];
     const COMING_SOON = {restaurant:"Restoran", halisaha:"Halı Saha", vet:"Veteriner", auto:"Oto Servis"};
 
-    let state = {
-      cat: qparam("cat") || "all",
-      q: qparam("q") || "",
-      city: qparam("city") || "",
-      sort: "rating",
-    };
+    let state = { cat: qparam("cat")||"all", q: qparam("q")||"", city: qparam("city")||"", sort:"rating" };
+    let ALL_BIZ = [];
+    let CITIES = [];
 
-    // search box
-    document.getElementById("searchSlot").innerHTML = `
-      <form class="search-bar" onsubmit="applySearch(event)">
-        <div class="field">${ICON.search}<input id="qText" type="text" placeholder="Berber veya kuaför ara..." value="${state.q}"></div>
-        <div class="divider"></div>
-        <div class="field" style="flex:0 0 auto">${ICON.pin}
-          <select id="qCity">
-            <option value="">Tüm şehirler</option>
-            ${CITIES.map(c=>`<option ${c===state.city?'selected':''}>${c}</option>`).join("")}
-          </select></div>
-        <button class="btn btn-primary" type="submit">Ara</button>
-      </form>`;
-
-    // filter chips (only active categories in this MVP)
-    document.getElementById("filterBar").innerHTML = ACTIVE_CATS.map(c=>`
-      <button class="chip ${state.cat===c.id?'active':''}" data-cat="${c.id}">${ICON[c.icon]} ${c.name}</button>`).join("");
-    document.querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
-      state.cat = ch.dataset.cat;
-      document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
-      ch.classList.add("active");
-      render();
-    }));
-
-    document.getElementById("sortSel").addEventListener("change", e=>{ state.sort = e.target.value; render(); });
-
-    function applySearch(e){
+    window.applySearch = function(e){
       e.preventDefault();
       state.q = document.getElementById("qText").value.trim();
       state.city = document.getElementById("qCity").value;
       render();
+    };
+
+    function buildSearch(){
+      document.getElementById("searchSlot").innerHTML = `
+        <form class="search-bar" onsubmit="applySearch(event)">
+          <div class="field">${ICON.search}<input id="qText" type="text" placeholder="Berber veya kuaför ara..." value="${state.q}"></div>
+          <div class="divider"></div>
+          <div class="field" style="flex:0 0 auto">${ICON.pin}
+            <select id="qCity"><option value="">Tüm şehirler</option>
+              ${CITIES.map(c=>`<option ${c===state.city?'selected':''}>${c}</option>`).join("")}
+            </select></div>
+          <button class="btn btn-primary" type="submit">Ara</button>
+        </form>`;
     }
+    function buildChips(){
+      document.getElementById("filterBar").innerHTML = ACTIVE_CATS.map(c=>`
+        <button class="chip ${state.cat===c.id?'active':''}" data-cat="${c.id}">${ICON[c.icon]} ${c.name}</button>`).join("");
+      document.querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+        state.cat = ch.dataset.cat;
+        document.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+        ch.classList.add("active");
+        render();
+      }));
+    }
+    document.getElementById("sortSel").addEventListener("change", e=>{ state.sort = e.target.value; render(); });
 
     function render(){
       const grid = document.getElementById("bizGrid");
       const empty = document.getElementById("empty");
 
-      // coming-soon categories (not part of MVP)
       if(COMING_SOON[state.cat]){
         grid.innerHTML = "";
         document.getElementById("resultCount").textContent = "";
@@ -133,7 +127,7 @@
       }
       if(state.sort==="rating") list.sort((a,b)=>b.rating-a.rating);
       if(state.sort==="reviews") list.sort((a,b)=>b.reviews-a.reviews);
-      if(state.sort==="price") list.sort((a,b)=>(RezoraDB.startingPrice(a)||1e9)-(RezoraDB.startingPrice(b)||1e9));
+      if(state.sort==="price") list.sort((a,b)=>(Rezora.startingPrice(a)||1e9)-(Rezora.startingPrice(b)||1e9));
 
       document.getElementById("resultCount").textContent = `${list.length} işletme bulundu`;
       if(list.length===0){
@@ -147,7 +141,11 @@
       initReveal();
     }
 
-    render();
+    (async()=>{
+      ALL_BIZ = await Rezora.getBusinesses();
+      CITIES = Array.from(new Set(ALL_BIZ.map(b=>b.city)));
+      buildSearch(); buildChips(); render();
+    })();
     buildFooter();
   </script>
 </body>
