@@ -201,6 +201,19 @@ drop policy if exists msg_select on public.messages;
 create policy msg_select on public.messages for select using (public.owns_business(business_id) or public.is_admin());
 
 -- ----------------------------------------------------------------
+-- REALTIME (dashboard'da rezervasyon/mesaj canlı güncellensin)
+--  Tabloları supabase_realtime yayınına ekler. RLS realtime'da da uygulanır,
+--  yani işletme yalnızca kendi business_id kayıtlarını dinler.
+-- ----------------------------------------------------------------
+alter table public.reservations replica identity full;
+alter table public.messages     replica identity full;
+do $$
+begin
+  begin alter publication supabase_realtime add table public.reservations; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.messages;     exception when duplicate_object then null; end;
+end $$;
+
+-- ----------------------------------------------------------------
 -- SEED DATA (3 demo işletme — sahipsiz, onaylı, admin tarafından yönetilir)
 -- ----------------------------------------------------------------
 insert into public.businesses (id, name, category, category_name, city, area, phone, working_days, open_time, close_time, slot_minutes, rating, reviews, img, gallery, description, status)

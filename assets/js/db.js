@@ -277,6 +277,32 @@ const Rezora = (function () {
       if (error) { console.error(error); return []; }
       return (data || []).map(mapMessage);
     },
+
+    /* ============ REALTIME ============ */
+    // Sadece verilen business_id'ye ait değişiklikler dinlenir (RLS de ayrıca uygular).
+    subscribeReservations(bizId, handlers) {
+      if (notReady() || !bizId) return null;
+      handlers = handlers || {};
+      const ch = sb.channel("rt-res-" + bizId)
+        .on("postgres_changes",
+          { event: "INSERT", schema: "public", table: "reservations", filter: "business_id=eq." + bizId },
+          (p) => handlers.onInsert && handlers.onInsert(mapReservation(p.new)))
+        .on("postgres_changes",
+          { event: "UPDATE", schema: "public", table: "reservations", filter: "business_id=eq." + bizId },
+          (p) => handlers.onChange && handlers.onChange(mapReservation(p.new)))
+        .subscribe();
+      return ch;
+    },
+    subscribeMessages(bizId, onInsert) {
+      if (notReady() || !bizId) return null;
+      const ch = sb.channel("rt-msg-" + bizId)
+        .on("postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages", filter: "business_id=eq." + bizId },
+          (p) => onInsert && onInsert(mapMessage(p.new)))
+        .subscribe();
+      return ch;
+    },
+    unsubscribe(ch) { if (sb && ch) sb.removeChannel(ch); },
   };
 
   function toMin(t) { const p = (t || "0:0").split(":"); return (+p[0]) * 60 + (+p[1] || 0); }

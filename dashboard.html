@@ -190,12 +190,30 @@
 
     let biz = null, bizId = null, filter = "all";
     let allBiz = [], resList = [], msgList = [];
+    let resChannel = null, msgChannel = null;
 
     const bizSelect = document.getElementById("bizSelect");
     bizSelect.addEventListener("change", async e=>{
       bizId = e.target.value; biz = allBiz.find(b=>b.id===bizId);
       await refreshAll();
+      setupRealtime();
     });
+
+    /* ---------- realtime: yalnızca seçili işletmenin kayıtları ---------- */
+    function setupRealtime(){
+      Rezora.unsubscribe(resChannel); Rezora.unsubscribe(msgChannel);
+      if(!bizId) return;
+      resChannel = Rezora.subscribeReservations(bizId, {
+        onInsert: async ()=>{ await refreshAll(); toast("Yeni rezervasyon geldi","bell"); },
+        onChange: async ()=>{ await refreshAll(); },
+      });
+      msgChannel = Rezora.subscribeMessages(bizId, async ()=>{
+        msgList = await Rezora.getMessagesByBusiness(bizId);
+        renderKpi();
+        if(document.querySelector('.dash-view[data-view="messages"]').classList.contains("active")) renderMessages();
+      });
+    }
+    window.addEventListener("beforeunload", ()=>{ Rezora.unsubscribe(resChannel); Rezora.unsubscribe(msgChannel); });
 
     /* ---------- view switching ---------- */
     document.querySelectorAll("#dashNav a[data-view]").forEach(a=>a.addEventListener("click",(e)=>{
@@ -476,6 +494,7 @@
 
       bizId = allBiz[0].id; biz = allBiz[0];
       await refreshAll();
+      setupRealtime();
 
       if(allBiz[0].status === "pending"){
         toast("İşletmen onay bekliyor — onaylanınca müşterilere görünür olacak.", "bell");
