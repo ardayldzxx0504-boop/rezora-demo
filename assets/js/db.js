@@ -207,21 +207,33 @@ const Rezora = (function () {
     /* ============ RESERVATIONS ============ */
     async createReservation(payload) {
       if (notReady()) return { ok: false, error: "Supabase yapılandırılmadı." };
+      // id'yi istemcide üretiyoruz: anon müşteri RLS gereği eklenen satırı geri okuyamaz,
+      // bu yüzden insert sonrası .select() yapmadan rezervasyon nesnesini yerelde kuruyoruz.
+      const id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : undefined;
+      const durationMin = payload.durationMin || 30;
+      const price = (payload.price === undefined ? null : payload.price);
       const row = {
+        id,
         business_id: payload.bizId, service_id: payload.serviceId || null,
-        service_name: payload.serviceName, duration_min: payload.durationMin || 30,
-        price: (payload.price === undefined ? null : payload.price),
+        service_name: payload.serviceName, duration_min: durationMin,
+        price,
         date: payload.date, time: payload.time,
         customer_name: payload.name, customer_phone: payload.phone, note: payload.note || "",
         status: "pending",
       };
-      const { data, error } = await sb.from("reservations").insert(row).select().maybeSingle();
+      const { error } = await sb.from("reservations").insert(row);
       if (error) {
         if ((error.message || "").indexOf("SLOT_CONFLICT") !== -1)
           return { ok: false, error: "Bu saat az önce doldu. Lütfen başka bir saat seçin." };
         return { ok: false, error: error.message };
       }
-      const r = mapReservation(data);
+      const r = {
+        id, bizId: payload.bizId, serviceId: payload.serviceId || null,
+        serviceName: payload.serviceName, durationMin, price,
+        date: payload.date, dateLabel: labelFromIso(payload.date), time: payload.time,
+        name: payload.name, phone: payload.phone, note: payload.note || "",
+        status: "pending", createdAt: new Date().toISOString(),
+      };
       const b = await this.getBusiness(r.bizId);
       await this._logMessage("created", r, b);
       return { ok: true, reservation: r };

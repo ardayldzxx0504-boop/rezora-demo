@@ -8,8 +8,8 @@
    Değerleri girdikten sonra site otomatik olarak Supabase'e bağlanır.
    (anon key tarayıcıda güvenle kullanılır; gerçek koruma RLS iledir.)
    =========================================================== */
-window.SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
-window.SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+window.SUPABASE_URL = "https://owtqcilbnbjfafjsodiz.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_publishable_wkN-EkmH99uBHyu4hLnHbw_NEMMdQn2";
 
 window.SUPABASE_CONFIGURED =
   !!window.SUPABASE_URL &&

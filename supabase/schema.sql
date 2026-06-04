@@ -102,7 +102,7 @@ $$;
 --  30 dk'lık 10:00 randevusu varsa 10:15 reddedilir.
 -- ----------------------------------------------------------------
 create or replace function public.check_reservation_overlap()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 declare ns int; ne int;
 begin
   if NEW.status = 'rejected' then return NEW; end if;
