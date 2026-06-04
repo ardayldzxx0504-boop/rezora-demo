@@ -77,6 +77,7 @@ create table if not exists messages (
   type            text,   -- created | approved | rejected | completed
   text            text,
   status          text default 'pending' check (status in ('pending','sent','failed')),
+  error           text,   -- gönderim başarısızsa hata detayı
   sent_at         timestamptz default now()
 );
 
@@ -84,6 +85,7 @@ create table if not exists messages (
 -- MIGRATIONS (idempotent — mevcut tablolar için güvenli)
 -- ----------------------------------------------------------------
 alter table public.businesses add column if not exists apply_note text;
+alter table public.messages   add column if not exists error text;
 
 -- ----------------------------------------------------------------
 -- HELPER FUNCTIONS (security definer => RLS özyinelemesini önler)

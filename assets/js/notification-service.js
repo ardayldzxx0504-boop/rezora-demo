@@ -19,24 +19,49 @@
 window.RezoraNotifier = (function () {
   const FUNCTION_NAME = "send-whatsapp-message";
 
+  // Hata mesajını ekranda toast olarak gösterir (toast varsa).
+  function showError(msg) {
+    if (typeof window !== "undefined" && typeof window.toast === "function") {
+      window.toast("Mesaj gönderilemedi: " + (msg || "bilinmeyen hata"), "bell");
+    }
+  }
+
+  // Edge Function non-2xx döndürdüğünde gövdedeki gerçek hatayı çıkarmaya çalışır.
+  async function extractError(error) {
+    let detail = error && error.message;
+    try {
+      if (error && error.context && typeof error.context.json === "function") {
+        const body = await error.context.json();
+        if (body && body.error) detail = body.error;
+      }
+    } catch (_) { /* yok say */ }
+    return detail || "Edge Function çağrısı başarısız";
+  }
+
   async function send(message) {
-    if (!message || !message.id) return { status: "failed", error: "Geçersiz mesaj" };
+    if (!message || !message.id) { showError("Geçersiz mesaj"); return { status: "failed", error: "Geçersiz mesaj" }; }
     const sb = (typeof Rezora !== "undefined" && Rezora.client) ? Rezora.client() : null;
-    if (!sb) return { status: "failed", error: "Supabase istemcisi hazır değil" };
+    if (!sb) { showError("Supabase istemcisi hazır değil"); return { status: "failed", error: "Supabase istemcisi hazır değil" }; }
     try {
       const { data, error } = await sb.functions.invoke(FUNCTION_NAME, {
         body: { message_id: message.id },
       });
       if (error) {
-        return { status: "failed", error: error.message || "Edge Function çağrısı başarısız" };
+        const detail = await extractError(error);
+        showError(detail);
+        return { status: "failed", error: detail };
       }
-      return {
+      const result = {
         status: (data && data.status) || "sent",
         providerId: data && data.providerId,
         error: data && data.error,
       };
+      if (result.status === "failed") showError(result.error);
+      return result;
     } catch (e) {
-      return { status: "failed", error: (e && e.message) || "Gönderim hatası" };
+      const detail = (e && e.message) || "Gönderim hatası";
+      showError(detail);
+      return { status: "failed", error: detail };
     }
   }
 

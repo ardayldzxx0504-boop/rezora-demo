@@ -81,17 +81,21 @@ Deno.serve(async (req: Request) => {
     const PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
     const API_VERSION = Deno.env.get("WHATSAPP_API_VERSION") || "v19.0";
 
-    // 4) Env eksikse: failed + anlaşılır mesaj (çökmeden)
+    // 4) Env eksikse: hangileri eksik logla + failed + anlaşılır mesaj (çökmeden)
     if (!TOKEN || !PHONE_ID) {
-      await admin.from("messages").update({ status: "failed" }).eq("id", message_id);
-      return json({
-        status: "failed",
-        error: "WhatsApp yapılandırması eksik. Supabase secrets içine WHATSAPP_TOKEN ve WHATSAPP_PHONE_NUMBER_ID ekleyin.",
-      });
+      const missing = [];
+      if (!TOKEN) missing.push("WHATSAPP_TOKEN");
+      if (!PHONE_ID) missing.push("WHATSAPP_PHONE_NUMBER_ID");
+      console.error("[send-whatsapp-message] Eksik env değişkenleri:", missing.join(", "));
+      const errMsg = "WhatsApp yapılandırması eksik. Eksik secrets: " + missing.join(", ");
+      await admin.from("messages").update({ status: "failed", error: errMsg }).eq("id", message_id);
+      return json({ status: "failed", error: errMsg });
     }
 
     // 5) WhatsApp Cloud API'ye gönder
     const to = normalizePhone(msg.to_phone);
+    console.log("[send-whatsapp-message] Gönderiliyor -> message_id:", message_id, "| to:", to, "| api:", API_VERSION, "| phone_id:", PHONE_ID);
+
     const resp = await fetch(`https://graph.facebook.com/${API_VERSION}/${PHONE_ID}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
@@ -104,17 +108,23 @@ Deno.serve(async (req: Request) => {
     });
     const result = await resp.json().catch(() => ({}));
 
+    console.log("[send-whatsapp-message] WhatsApp API yanıt status:", resp.status, resp.statusText);
+    console.log("[send-whatsapp-message] WhatsApp API yanıt body:", JSON.stringify(result));
+
     if (!resp.ok) {
-      await admin.from("messages").update({ status: "failed" }).eq("id", message_id);
-      return json({
-        status: "failed",
-        error: result?.error?.message || `WhatsApp API hatası (HTTP ${resp.status})`,
-      });
+      const errMsg = result?.error?.message || `WhatsApp API hatası (HTTP ${resp.status})`;
+      console.error("[send-whatsapp-message] Gönderim başarısız:", errMsg);
+      await admin.from("messages").update({ status: "failed", error: errMsg }).eq("id", message_id);
+      return json({ status: "failed", error: errMsg, detail: result });
     }
 
-    await admin.from("messages").update({ status: "sent" }).eq("id", message_id);
-    return json({ status: "sent", providerId: result?.messages?.[0]?.id || null });
+    const providerId = result?.messages?.[0]?.id || null;
+    console.log("[send-whatsapp-message] Gönderim başarılı. providerId:", providerId);
+    await admin.from("messages").update({ status: "sent", error: null }).eq("id", message_id);
+    return json({ status: "sent", providerId });
   } catch (e) {
-    return json({ status: "failed", error: String((e && e.message) || e) });
+    const errMsg = String((e && e.message) || e);
+    console.error("[send-whatsapp-message] Beklenmeyen hata:", errMsg);
+    return json({ status: "failed", error: errMsg });
   }
 });

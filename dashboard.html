@@ -348,8 +348,10 @@
       const res = await Rezora.setStatus(id, status);
       if(!res.ok){ toast(res.error || "İşlem başarısız","bell"); return; }
       const name = res.reservation.name;
-      if(status==="approved") toast(`${name} onaylandı · WhatsApp mesajı gönderildi ✓`,"ok");
-      if(status==="rejected") toast(`${name} reddedildi · müşteri bilgilendirildi`,"bell");
+      const msgFailed = res.message && res.message.status === "failed";
+      // WhatsApp gönderimi başarısızsa hata detayı notification-service tarafından ayrı toast ile gösterilir.
+      if(status==="approved") toast(msgFailed ? `${name} onaylandı` : `${name} onaylandı · WhatsApp mesajı gönderildi ✓`,"ok");
+      if(status==="rejected") toast(msgFailed ? `${name} reddedildi` : `${name} reddedildi · müşteri bilgilendirildi`,"bell");
       if(status==="completed") toast(`${name} tamamlandı olarak işaretlendi`,"ok");
       await refreshAll();
     };
@@ -473,6 +475,7 @@
               <span class="badge ${ms.cls}"><span class="dot"></span> ${ms.label}</span>
               ${canResend ? `<button class="btn btn-soft btn-sm" onclick="resendMsg('${m.id}')">Tekrar gönder</button>` : ``}
             </div>
+            ${(m.status==="failed" && m.error) ? `<div class="msg-err">${ICON.bell} ${m.error}</div>` : ``}
           </div>
         </div>`;
       }).join("") : `<p class="muted">Henüz mesaj kaydı yok. Bir rezervasyon onayladığında burada görünecek.</p>`;
@@ -482,7 +485,9 @@
       const res = await Rezora.resendMessage(id);
       msgList = await Rezora.getMessagesByBusiness(bizId);
       renderMessages();
-      toast(res.ok ? "Mesaj yeniden gönderildi ✓" : "Gönderim başarısız — tekrar deneyin", res.ok ? "ok" : "bell");
+      // Başarısızsa hata detayı notification-service tarafından toast ile gösterilir.
+      if(res.ok) toast("Mesaj yeniden gönderildi ✓","ok");
+      else if(!window.RezoraNotifier) toast("Gönderim başarısız: " + (res.error || "bilinmeyen hata"), "bell");
     };
 
     window.markRead = function(){ toast("Tüm bildirimler okundu","bell"); };

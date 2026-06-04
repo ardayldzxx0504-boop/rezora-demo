@@ -51,7 +51,7 @@ const Rezora = (function () {
   }
   function mapMessage(m) {
     return { id: m.id, reservationId: m.reservation_id, bizId: m.business_id, to: m.to_phone,
-             channel: m.channel, type: m.type, text: m.text, status: m.status, sentAt: m.sent_at };
+             channel: m.channel, type: m.type, text: m.text, status: m.status, error: m.error || null, sentAt: m.sent_at };
   }
 
   function notReady() { return !sb; }
@@ -278,18 +278,20 @@ const Rezora = (function () {
       msg = await this._deliver(msg);
       return msg;
     },
-    // Bildirim servisini çağırır ve sonuca göre durumu günceller (sent/failed).
+    // Bildirim servisini çağırır ve sonuca göre durumu günceller (sent/failed + hata).
     async _deliver(msg) {
       if (!msg || !msg.id) return msg;
       if (typeof window === "undefined" || !window.RezoraNotifier) return msg; // servis yoksa pending kalır
       const res = await window.RezoraNotifier.send(msg);
-      const updated = await this.updateMessageStatus(msg.id, res.status || "sent");
+      const updated = await this.updateMessageStatus(msg.id, res.status || "sent", res.error || null);
       return updated || msg;
     },
-    async updateMessageStatus(id, status) {
+    async updateMessageStatus(id, status, error) {
       if (notReady()) return null;
-      const { data, error } = await sb.from("messages").update({ status }).eq("id", id).select().maybeSingle();
-      if (error) { console.error(error); return null; }
+      const patch = { status };
+      if (error !== undefined) patch.error = error || null;
+      const { data, error: updErr } = await sb.from("messages").update(patch).eq("id", id).select().maybeSingle();
+      if (updErr) { console.error(updErr); return null; }
       return data ? mapMessage(data) : null;
     },
     // Dashboard "Tekrar gönder": mevcut mesajı yeniden gönderir (owner/admin).
@@ -298,9 +300,9 @@ const Rezora = (function () {
       const { data } = await sb.from("messages").select("*").eq("id", id).maybeSingle();
       if (!data) return { ok: false, error: "Mesaj bulunamadı" };
       let msg = mapMessage(data);
-      await this.updateMessageStatus(id, "pending");
+      await this.updateMessageStatus(id, "pending", null);
       const res = window.RezoraNotifier ? await window.RezoraNotifier.send(msg) : { status: "sent" };
-      const updated = await this.updateMessageStatus(id, res.status || "sent");
+      const updated = await this.updateMessageStatus(id, res.status || "sent", res.error || null);
       return { ok: res.status !== "failed", message: updated, error: res.error };
     },
     async getMessagesByBusiness(bizId) {
