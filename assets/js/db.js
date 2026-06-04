@@ -33,7 +33,8 @@ const Rezora = (function () {
       openTime: b.open_time, closeTime: b.close_time, slotMinutes: b.slot_minutes,
       rating: b.rating ? Number(b.rating) : 5, reviews: b.reviews || 0,
       img: b.img, gallery: b.gallery || [], desc: b.description || "",
-      status: b.status,
+      applyNote: b.apply_note || "",
+      status: b.status, createdAt: b.created_at,
       services: (b.services || []).map(mapService),
       reviewsList: [],
     };
@@ -125,6 +126,11 @@ const Rezora = (function () {
       if (error) { console.error(error); return []; }
       return (data || []).map(mapBusiness);
     },
+    async getOwnerInfo(ownerId) { // admin: başvuru sahibi e-postası
+      if (notReady() || !ownerId) return null;
+      const { data } = await sb.from("profiles").select("email,full_name").eq("id", ownerId).maybeSingle();
+      return data || null;
+    },
     async createBusiness(payload) {
       if (notReady()) return { ok: false, error: "Supabase yapılandırılmadı." };
       const u = await this.getUser();
@@ -138,6 +144,7 @@ const Rezora = (function () {
         slot_minutes: payload.slotMinutes || 30,
         img: payload.img || "1503951914875-452162b0f3f1",
         description: payload.desc || "",
+        apply_note: payload.applyNote || null,
         status: payload.status || "pending",
       };
       const { data, error } = await sb.from("businesses").insert(row).select().maybeSingle();

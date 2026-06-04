@@ -37,6 +37,7 @@ create table if not exists businesses (
   img           text,
   gallery       text[],
   description   text,
+  apply_note    text,          -- başvuru sırasında işletmenin admin'e notu
   status        text not null default 'pending' check (status in ('pending','approved','rejected')),
   created_at    timestamptz default now()
 );
@@ -78,6 +79,11 @@ create table if not exists messages (
   status          text default 'pending' check (status in ('pending','sent','failed')),
   sent_at         timestamptz default now()
 );
+
+-- ----------------------------------------------------------------
+-- MIGRATIONS (idempotent — mevcut tablolar için güvenli)
+-- ----------------------------------------------------------------
+alter table public.businesses add column if not exists apply_note text;
 
 -- ----------------------------------------------------------------
 -- HELPER FUNCTIONS (security definer => RLS özyinelemesini önler)

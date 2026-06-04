@@ -525,6 +525,22 @@ h1, h2, h3, h4, h5 { font-family: var(--font-head); font-weight: 800; line-heigh
 .msg-to { font-family:var(--font-head);font-weight:700;font-size:.92rem; }
 .msg-text { color:var(--gray-700);font-size:.9rem;margin-top:4px;line-height:1.5;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:12px;padding:10px 12px; }
 .msg-foot { display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px; }
+
+/* Dashboard application-status banner */
+.status-banner { display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:var(--radius); margin-bottom:20px; font-size:.92rem; line-height:1.5; }
+.status-banner svg { width:20px; height:20px; flex-shrink:0; margin-top:1px; }
+.status-banner.pending { background:var(--amber-50); border:1px solid #fcd9a5; color:#92510a; }
+.status-banner.rejected { background:var(--red-50); border:1px solid #f6c2c2; color:#991b1b; }
+
+/* Lightweight modal (admin business detail) */
+.rz-modal { position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(17,17,17,.55); backdrop-filter:blur(3px); }
+.rz-modal.open { display:flex; }
+.rz-modal-card { background:#fff; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); width:100%; max-width:520px; max-height:88vh; overflow:auto; padding:26px; }
+.rz-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.rz-modal-row { display:flex; justify-content:space-between; gap:14px; padding:10px 0; border-bottom:1px solid var(--gray-100); font-size:.92rem; }
+.rz-modal-row:last-child { border-bottom:none; }
+.rz-modal-row .k { color:var(--gray-500); }
+.rz-modal-row .v { font-weight:600; text-align:right; }
 .msg-meta { font-size:.76rem;color:var(--gray-400); }
 
 @media (max-width: 680px) {

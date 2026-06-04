@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Paneli — Rezora</title>
-  <meta name="description" content="Rezora yönetim paneli — işletme onaylama, ekleme ve silme.">
+  <meta name="description" content="Rezora yönetim paneli — işletme başvuru onayı, ekleme ve silme.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -29,69 +29,98 @@
           <div>
             <span class="eyebrow">Yönetim</span>
             <h1 style="font-size:1.9rem;margin-top:6px">Admin Paneli</h1>
-            <p class="muted" style="margin-top:6px">İşletmeleri onayla, ekle veya kaldır.</p>
+            <p class="muted" style="margin-top:6px">İşletme başvurularını incele, onayla veya reddet.</p>
           </div>
           <a href="dashboard.html" class="btn btn-soft btn-sm">← Panele dön</a>
         </div>
 
         <div class="kpi-grid" id="adminKpi" style="margin-bottom:24px"></div>
 
-        <div class="grid gap-16" style="grid-template-columns:1fr;align-items:start">
-          <!-- ADD BUSINESS -->
-          <div class="panel">
-            <div class="panel-head"><h3>Yeni İşletme Ekle</h3></div>
-            <form id="addForm" style="padding:20px 22px">
-              <div class="field-group"><label>İşletme adı</label><input class="input" id="aName" type="text" required></div>
-              <div class="form-grid">
-                <div class="field-group"><label>Kategori</label>
-                  <select class="input" id="aCat"><option value="barber">Berber</option><option value="salon">Kuaför</option></select>
-                </div>
-                <div class="field-group"><label>Şehir</label><input class="input" id="aCity" type="text" required></div>
-                <div class="field-group"><label>Bölge / adres</label><input class="input" id="aArea" type="text"></div>
-                <div class="field-group"><label>Telefon</label><input class="input" id="aPhone" type="tel" placeholder="+90 ..."></div>
-                <div class="field-group"><label>Açılış</label><input class="input" id="aOpen" type="time" value="10:00"></div>
-                <div class="field-group"><label>Kapanış</label><input class="input" id="aClose" type="time" value="20:00"></div>
-                <div class="field-group"><label>Randevu aralığı (dk)</label>
-                  <select class="input" id="aSlot"><option>15</option><option selected>30</option><option>45</option><option>60</option></select>
-                </div>
+        <!-- ADD BUSINESS -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-head"><h3>Yeni İşletme Ekle</h3></div>
+          <form id="addForm" style="padding:20px 22px">
+            <div class="field-group"><label>İşletme adı</label><input class="input" id="aName" type="text" required></div>
+            <div class="form-grid">
+              <div class="field-group"><label>Kategori</label>
+                <select class="input" id="aCat"><option value="barber">Berber</option><option value="salon">Kuaför</option></select>
               </div>
-              <button class="btn btn-primary" type="submit" style="margin-top:16px">İşletme ekle (onaylı)</button>
-            </form>
-          </div>
+              <div class="field-group"><label>Şehir</label><input class="input" id="aCity" type="text" required></div>
+              <div class="field-group"><label>Bölge / adres</label><input class="input" id="aArea" type="text"></div>
+              <div class="field-group"><label>Telefon</label><input class="input" id="aPhone" type="tel" placeholder="+90 ..."></div>
+              <div class="field-group"><label>Açılış</label><input class="input" id="aOpen" type="time" value="10:00"></div>
+              <div class="field-group"><label>Kapanış</label><input class="input" id="aClose" type="time" value="20:00"></div>
+              <div class="field-group"><label>Randevu aralığı (dk)</label>
+                <select class="input" id="aSlot"><option>15</option><option selected>30</option><option>45</option><option>60</option></select>
+              </div>
+            </div>
+            <button class="btn btn-primary" type="submit" style="margin-top:16px">İşletme ekle (onaylı)</button>
+          </form>
+        </div>
 
-          <!-- BUSINESS LIST -->
-          <div class="panel">
-            <div class="panel-head">
-              <h3>İşletmeler</h3>
-              <div class="flex gap-8 flex-wrap" id="adminTabs">
-                <button class="chip active" data-filter="all" style="padding:7px 14px;font-size:.82rem">Tümü</button>
-                <button class="chip" data-filter="pending" style="padding:7px 14px;font-size:.82rem">Onay bekleyen</button>
-                <button class="chip" data-filter="approved" style="padding:7px 14px;font-size:.82rem">Onaylı</button>
-                <button class="chip" data-filter="rejected" style="padding:7px 14px;font-size:.82rem">Reddedilen</button>
-              </div>
-            </div>
-            <div style="overflow-x:auto">
-              <table class="rtable">
-                <thead><tr><th>İşletme</th><th>Kategori</th><th>Şehir</th><th>Durum</th><th>İşlem</th></tr></thead>
-                <tbody id="bizBody"></tbody>
-              </table>
-            </div>
+        <!-- PENDING -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-head"><h3>Bekleyen Başvurular <span class="badge badge-amber" id="cntPending" style="margin-left:8px">0</span></h3></div>
+          <div style="overflow-x:auto">
+            <table class="rtable">
+              <thead><tr><th>İşletme</th><th>Kategori</th><th>Şehir</th><th>Başvuru</th><th>İşlem</th></tr></thead>
+              <tbody id="pendingBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- APPROVED -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-head"><h3>Onaylı İşletmeler <span class="badge badge-green" id="cntApproved" style="margin-left:8px">0</span></h3></div>
+          <div style="overflow-x:auto">
+            <table class="rtable">
+              <thead><tr><th>İşletme</th><th>Kategori</th><th>Şehir</th><th>Durum</th><th>İşlem</th></tr></thead>
+              <tbody id="approvedBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- REJECTED -->
+        <div class="panel">
+          <div class="panel-head"><h3>Reddedilen İşletmeler <span class="badge badge-red" id="cntRejected" style="margin-left:8px">0</span></h3></div>
+          <div style="overflow-x:auto">
+            <table class="rtable">
+              <thead><tr><th>İşletme</th><th>Kategori</th><th>Şehir</th><th>Durum</th><th>İşlem</th></tr></thead>
+              <tbody id="rejectedBody"></tbody>
+            </table>
           </div>
         </div>
       </div>
     </div>
   </main>
 
+  <!-- DETAIL MODAL -->
+  <div class="rz-modal" id="detailModal">
+    <div class="rz-modal-card">
+      <div class="rz-modal-head">
+        <div>
+          <h3 id="dmName" style="font-size:1.25rem">—</h3>
+          <span id="dmStatus" class="badge badge-gray" style="margin-top:6px"></span>
+        </div>
+        <button class="nav-toggle" onclick="closeDetail()" aria-label="Kapat" id="dmClose"></button>
+      </div>
+      <div id="dmRows"></div>
+      <div class="flex gap-8 flex-wrap" id="dmActions" style="margin-top:18px"></div>
+    </div>
+  </div>
+
   <script>
     initLayout("");
     rezoraConfigBanner();
+
+    document.getElementById("dmClose").innerHTML = ICON.x;
 
     const statusMap = {
       pending:  {label:"Onay bekliyor", cls:"badge-amber"},
       approved: {label:"Onaylı",        cls:"badge-green"},
       rejected: {label:"Reddedildi",    cls:"badge-red"},
     };
-    let all = [], filter = "all";
+    let all = [];
 
     function showGuard(title, text){
       document.getElementById("guardTitle").textContent = title;
@@ -99,56 +128,110 @@
       document.getElementById("guardMsg").classList.remove("hidden");
     }
 
+    function fmtDate(iso){ if(!iso) return "—"; const d=new Date(iso); return d.toLocaleDateString('tr-TR')+" "+String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0'); }
+
     function renderKpi(){
       const total = all.length;
       const pending = all.filter(b=>b.status==="pending").length;
       const approved = all.filter(b=>b.status==="approved").length;
+      const rejected = all.filter(b=>b.status==="rejected").length;
       const cards = [
-        {bg:"var(--purple-50)", fg:"var(--purple-700)", val:total, lbl:"Toplam işletme"},
-        {bg:"var(--amber-50)", fg:"#b45309", val:pending, lbl:"Onay bekleyen"},
-        {bg:"var(--green-50)", fg:"#047857", val:approved, lbl:"Yayında"},
+        {fg:"var(--purple-700)", val:total, lbl:"Toplam başvuru"},
+        {fg:"#b45309", val:pending, lbl:"Bekleyen"},
+        {fg:"#047857", val:approved, lbl:"Yayında"},
+        {fg:"#b91c1c", val:rejected, lbl:"Reddedilen"},
       ];
       document.getElementById("adminKpi").innerHTML = cards.map(k=>`
         <div class="kpi"><div class="k-val" style="color:${k.fg}">${k.val}</div><div class="k-lbl">${k.lbl}</div></div>`).join("");
+      document.getElementById("cntPending").textContent = pending;
+      document.getElementById("cntApproved").textContent = approved;
+      document.getElementById("cntRejected").textContent = rejected;
     }
 
-    function renderTable(){
-      const list = all.filter(b=> filter==="all" ? true : b.status===filter);
-      document.getElementById("bizBody").innerHTML = list.map(b=>{
-        const st = statusMap[b.status] || statusMap.pending;
-        let actions = "";
-        if(b.status!=="approved") actions += `<button class="icon-btn ok" title="Onayla" onclick="setStatus('${b.id}','approved')">${ICON.check}</button>`;
-        if(b.status!=="rejected") actions += `<button class="icon-btn no" title="Reddet" onclick="setStatus('${b.id}','rejected')">${ICON.x}</button>`;
-        actions += `<button class="icon-btn no" title="Sil" onclick="delBiz('${b.id}','${(b.name||'').replace(/'/g,"")}')">${ICON.trash||ICON.x}</button>`;
-        return `<tr>
-          <td><div style="font-weight:700">${b.name}</div><div class="cphone">${b.area||''}</div></td>
-          <td>${b.categoryName}</td>
-          <td>${b.city||'—'}</td>
-          <td><span class="badge ${st.cls}"><span class="dot"></span> ${st.label}</span></td>
-          <td><div class="row-actions">${actions}</div></td>
-        </tr>`;
-      }).join("") || `<tr><td colspan="5" class="center muted" style="padding:36px">Bu filtrede işletme yok.</td></tr>`;
+    function actionsFor(b){
+      const detail = `<button class="btn btn-soft btn-sm" onclick="detail('${b.id}')">Detay</button>`;
+      let extra = "";
+      if(b.status!=="approved") extra += `<button class="icon-btn ok" title="Onayla" onclick="setStatus('${b.id}','approved')">${ICON.check}</button>`;
+      if(b.status!=="rejected") extra += `<button class="icon-btn no" title="Reddet" onclick="setStatus('${b.id}','rejected')">${ICON.x}</button>`;
+      const del = `<button class="icon-btn no" title="Sil" onclick="delBiz('${b.id}')">${ICON.trash||ICON.x}</button>`;
+      return `<div class="row-actions">${detail}${extra}${del}</div>`;
     }
 
+    function rowHtml(b, withStatus){
+      return `<tr>
+        <td><div style="font-weight:700">${b.name}</div><div class="cphone">${b.area||''}</div></td>
+        <td>${b.categoryName}</td>
+        <td>${b.city||'—'}</td>
+        <td>${withStatus ? `<span class="badge ${statusMap[b.status].cls}"><span class="dot"></span> ${statusMap[b.status].label}</span>` : fmtDate(b.createdAt)}</td>
+        <td>${actionsFor(b)}</td>
+      </tr>`;
+    }
+
+    function renderSections(){
+      const groups = {
+        pendingBody:  {list: all.filter(b=>b.status==="pending"),  withStatus:false, empty:"Bekleyen başvuru yok."},
+        approvedBody: {list: all.filter(b=>b.status==="approved"), withStatus:true,  empty:"Onaylı işletme yok."},
+        rejectedBody: {list: all.filter(b=>b.status==="rejected"), withStatus:true,  empty:"Reddedilen işletme yok."},
+      };
+      Object.keys(groups).forEach(id=>{
+        const g = groups[id];
+        document.getElementById(id).innerHTML = g.list.length
+          ? g.list.map(b=>rowHtml(b, g.withStatus)).join("")
+          : `<tr><td colspan="5" class="center muted" style="padding:30px">${g.empty}</td></tr>`;
+      });
+    }
+
+    /* ---------- detail modal ---------- */
+    window.detail = async function(id){
+      const b = all.find(x=>x.id===id); if(!b) return;
+      document.getElementById("dmName").textContent = b.name;
+      const st = statusMap[b.status];
+      const stEl = document.getElementById("dmStatus");
+      stEl.className = "badge " + st.cls; stEl.innerHTML = `<span class="dot"></span> ${st.label}`;
+
+      const owner = await Rezora.getOwnerInfo(b.ownerId);
+      const rows = [
+        ["Kategori", b.categoryName],
+        ["Şehir", b.city || "—"],
+        ["Adres", b.area || "—"],
+        ["Telefon", b.phone || "—"],
+        ["Başvuru sahibi", owner ? (owner.email || owner.full_name || "—") : (b.ownerId ? "—" : "Admin tarafından eklendi")],
+        ["Çalışma", `${(b.workingDays||[]).length} gün · ${b.openTime}-${b.closeTime} · ${b.slotMinutes} dk`],
+        ["Hizmet sayısı", String((b.services||[]).length)],
+        ["Başvuru tarihi", fmtDate(b.createdAt)],
+        ["Başvuru notu", b.applyNote || "—"],
+      ];
+      document.getElementById("dmRows").innerHTML = rows.map(([k,v])=>`
+        <div class="rz-modal-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+
+      let actions = "";
+      if(b.status!=="approved") actions += `<button class="btn btn-primary btn-sm" onclick="setStatus('${b.id}','approved')">Onayla</button>`;
+      if(b.status!=="rejected") actions += `<button class="btn btn-soft btn-sm" onclick="setStatus('${b.id}','rejected')">Reddet</button>`;
+      actions += `<button class="btn btn-logout btn-sm" onclick="delBiz('${b.id}')">Sil</button>`;
+      document.getElementById("dmActions").innerHTML = actions;
+
+      document.getElementById("detailModal").classList.add("open");
+    };
+    window.closeDetail = function(){ document.getElementById("detailModal").classList.remove("open"); };
+    document.getElementById("detailModal").addEventListener("click", e=>{ if(e.target.id==="detailModal") closeDetail(); });
+
+    /* ---------- actions ---------- */
     window.setStatus = async function(id, status){
       const res = await Rezora.setBusinessStatus(id, status);
       if(!res){ toast("Güncellenemedi (yetki/RLS)","bell"); return; }
-      toast(status==="approved" ? "İşletme onaylandı ✓" : "İşletme reddedildi","ok");
+      toast(status==="approved" ? "İşletme onaylandı ✓ — public listede görünecek" : "İşletme reddedildi","ok");
+      closeDetail();
       await load();
     };
-    window.delBiz = async function(id, name){
-      if(!confirm(`"${name}" işletmesini silmek istediğine emin misin? Bu işlem geri alınamaz.`)) return;
+    window.delBiz = async function(id){
+      const b = all.find(x=>x.id===id);
+      if(!confirm(`"${b?b.name:'Bu işletme'}" silinsin mi? Bu işlem geri alınamaz.`)) return;
       const res = await Rezora.deleteBusiness(id);
       if(!res.ok){ toast(res.error || "Silinemedi","bell"); return; }
       toast("İşletme silindi","bell");
+      closeDetail();
       await load();
     };
-
-    document.querySelectorAll("#adminTabs .chip").forEach(c=>c.addEventListener("click",()=>{
-      filter = c.dataset.filter;
-      document.querySelectorAll("#adminTabs .chip").forEach(x=>x.classList.remove("active"));
-      c.classList.add("active"); renderTable();
-    }));
 
     document.getElementById("addForm").addEventListener("submit", async (e)=>{
       e.preventDefault();
@@ -172,7 +255,7 @@
 
     async function load(){
       all = await Rezora.getAllBusinesses();
-      renderKpi(); renderTable();
+      renderKpi(); renderSections();
     }
 
     (async()=>{

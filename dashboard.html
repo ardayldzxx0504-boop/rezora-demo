@@ -50,6 +50,8 @@
           </div>
         </div>
 
+        <div id="statusBanner" class="status-banner hidden"></div>
+
         <!-- ============ OVERVIEW ============ -->
         <section class="dash-view active" data-view="overview">
           <div class="kpi-grid" id="kpiGrid"></div>
@@ -239,6 +241,24 @@
       const d = new Date();
       document.getElementById("todayLabel").textContent =
         `İşte ${biz.name} için bugünkü özet — ${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${TR_DAYS_FULL[d.getDay()]}`;
+      renderStatusBanner();
+    }
+
+    function renderStatusBanner(){
+      const el = document.getElementById("statusBanner");
+      if(!el) return;
+      if(biz.status === "pending"){
+        el.className = "status-banner pending";
+        el.innerHTML = `${ICON.clock}<div><strong>İşletmeniz onay bekliyor.</strong> Başvurunuz ekibimiz tarafından inceleniyor; onaylanana kadar müşterilere görünmez. Bu sürede profilinizi ve hizmetlerinizi düzenleyebilirsiniz.</div>`;
+        el.classList.remove("hidden");
+      } else if(biz.status === "rejected"){
+        el.className = "status-banner rejected";
+        el.innerHTML = `${ICON.x}<div><strong>Başvurunuz reddedildi.</strong> Bilgilerinizi güncelleyip ekibimizle iletişime geçebilirsiniz. İşletmeniz şu an public listede görünmüyor.</div>`;
+        el.classList.remove("hidden");
+      } else {
+        el.className = "status-banner hidden";
+        el.innerHTML = "";
+      }
     }
 
     /* ---------- KPIs ---------- */
@@ -514,10 +534,6 @@
       bizId = allBiz[0].id; biz = allBiz[0];
       await refreshAll();
       setupRealtime();
-
-      if(allBiz[0].status === "pending"){
-        toast("İşletmen onay bekliyor — onaylanınca müşterilere görünür olacak.", "bell");
-      }
     })();
     buildFooter();
   </script>

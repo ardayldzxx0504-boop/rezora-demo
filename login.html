@@ -46,11 +46,14 @@
           </select>
         </div>
         <div class="rz-gate-field"><input class="rz-gate-input" id="suCity" type="text" placeholder="Şehir (ör. Girne)" required></div>
+        <div class="rz-gate-field"><input class="rz-gate-input" id="suArea" type="text" placeholder="Adres (ör. Karaoğlanoğlu Cd. No:14)"></div>
         <div class="rz-gate-field"><input class="rz-gate-input" id="suPhone" type="tel" placeholder="Telefon (+90 ...)"></div>
         <div class="rz-gate-field"><input class="rz-gate-input" id="suEmail" type="email" placeholder="E-posta" autocomplete="email" required></div>
         <div class="rz-gate-field"><input class="rz-gate-input" id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password" required></div>
+        <div class="rz-gate-field"><textarea class="rz-gate-input" id="suNote" rows="3" style="padding:13px 16px;resize:vertical" placeholder="Başvuru notu (opsiyonel) — ekibimize iletmek istedikleriniz"></textarea></div>
         <div class="rz-gate-error" id="suErr"></div>
-        <button class="btn btn-primary btn-block" type="submit" id="suBtn">Kaydı Oluştur</button>
+        <button class="btn btn-primary btn-block" type="submit" id="suBtn">Başvuruyu Gönder</button>
+        <p class="rz-gate-note" style="margin-top:14px">Başvurunuz incelendikten sonra yayına alınır.</p>
       </form>
 
       <p class="rz-gate-note" style="margin-top:18px"><a href="index.html" style="color:var(--gray-500)">← Ana sayfaya dön</a></p>
@@ -102,10 +105,12 @@
       const bizName = document.getElementById("suBiz").value.trim();
       const cat = document.getElementById("suCat").value;
       const city = document.getElementById("suCity").value.trim();
+      const area = document.getElementById("suArea").value.trim();
       const phone = document.getElementById("suPhone").value.trim();
+      const note = document.getElementById("suNote").value.trim();
 
       const up = await Rezora.signUp(email, pass);
-      if(!up.ok){ showErr(err, up.error || "Kayıt başarısız"); btn.disabled=false; btn.textContent="Kaydı Oluştur"; return; }
+      if(!up.ok){ showErr(err, up.error || "Kayıt başarısız"); btn.disabled=false; btn.textContent="Başvuruyu Gönder"; return; }
 
       // E-posta onayı kapalıysa oturum hemen gelir; açıksa giriş gerekebilir.
       let session = up.session;
@@ -114,18 +119,18 @@
         session = si.ok ? si.session : null;
       }
       if(!session){
-        showErr(err, "Kaydın alındı. E-postanı onayladıktan sonra giriş yapıp işletmeni oluşturabilirsin.");
-        btn.disabled=false; btn.textContent="Kaydı Oluştur"; return;
+        showErr(err, "Başvurun alındı. E-postanı onayladıktan sonra giriş yapıp panelini görebilirsin.");
+        btn.disabled=false; btn.textContent="Başvuruyu Gönder"; return;
       }
 
-      // profil + (pending) işletme oluştur
+      // profil + (pending) işletme başvurusu oluştur
       const sb = Rezora.client();
       const user = (await Rezora.getUser());
       await sb.from("profiles").upsert({ id: user.id, role: "business", full_name: bizName, email });
       const created = await Rezora.createBusiness({
-        ownerId: user.id, name: bizName, category: cat, city, phone, status: "pending",
+        ownerId: user.id, name: bizName, category: cat, city, area, phone, applyNote: note, status: "pending",
       });
-      if(!created.ok){ showErr(err, created.error || "İşletme oluşturulamadı"); btn.disabled=false; btn.textContent="Kaydı Oluştur"; return; }
+      if(!created.ok){ showErr(err, created.error || "Başvuru oluşturulamadı"); btn.disabled=false; btn.textContent="Başvuruyu Gönder"; return; }
 
       location.href = "dashboard.html?welcome=1";
     });
