@@ -75,7 +75,7 @@ create table if not exists messages (
   channel         text default 'whatsapp',
   type            text,   -- created | approved | rejected | completed
   text            text,
-  status          text default 'sent',
+  status          text default 'pending' check (status in ('pending','sent','failed')),
   sent_at         timestamptz default now()
 );
 
@@ -199,6 +199,8 @@ drop policy if exists msg_insert on public.messages;
 create policy msg_insert on public.messages for insert with check (true);
 drop policy if exists msg_select on public.messages;
 create policy msg_select on public.messages for select using (public.owns_business(business_id) or public.is_admin());
+drop policy if exists msg_update on public.messages;
+create policy msg_update on public.messages for update using (public.owns_business(business_id) or public.is_admin());
 
 -- ----------------------------------------------------------------
 -- REALTIME (dashboard'da rezervasyon/mesaj canlı güncellensin)

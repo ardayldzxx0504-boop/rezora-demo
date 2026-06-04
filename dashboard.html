@@ -166,6 +166,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/notification-service.js"></script>
   <script src="assets/js/db.js"></script>
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>
@@ -428,23 +429,41 @@
     });
 
     /* ---------- messages log ---------- */
+    const msgStatusMap = {
+      pending: {label:"Bekliyor", cls:"badge-amber"},
+      sent:    {label:"Gönderildi", cls:"badge-green"},
+      failed:  {label:"Başarısız", cls:"badge-red"},
+    };
     function renderMessages(){
       const msgs = msgList;
       const typeLabel = {created:"Talep alındı", approved:"Onay mesajı", rejected:"Red bildirimi", completed:"Teşekkür mesajı"};
       document.getElementById("msgLog").innerHTML = msgs.length ? msgs.map(m=>{
         const t = new Date(m.sentAt);
+        const ms = msgStatusMap[m.status] || msgStatusMap.pending;
+        const canResend = m.status !== "sent";
         return `<div class="msg-item">
           <div class="msg-ico">${ICON.whatsapp}</div>
           <div class="msg-body">
             <div class="msg-head">
               <span class="msg-to">${m.to} <span class="badge badge-gray" style="margin-left:6px">${typeLabel[m.type]||m.type}</span></span>
-              <span class="msg-meta">${t.toLocaleDateString('tr-TR')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} · ${m.status}</span>
+              <span class="msg-meta">${t.toLocaleDateString('tr-TR')} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}</span>
             </div>
             <div class="msg-text">${m.text}</div>
+            <div class="msg-foot">
+              <span class="badge ${ms.cls}"><span class="dot"></span> ${ms.label}</span>
+              ${canResend ? `<button class="btn btn-soft btn-sm" onclick="resendMsg('${m.id}')">Tekrar gönder</button>` : ``}
+            </div>
           </div>
         </div>`;
       }).join("") : `<p class="muted">Henüz mesaj kaydı yok. Bir rezervasyon onayladığında burada görünecek.</p>`;
     }
+
+    window.resendMsg = async function(id){
+      const res = await Rezora.resendMessage(id);
+      msgList = await Rezora.getMessagesByBusiness(bizId);
+      renderMessages();
+      toast(res.ok ? "Mesaj yeniden gönderildi ✓" : "Gönderim başarısız — tekrar deneyin", res.ok ? "ok" : "bell");
+    };
 
     window.markRead = function(){ toast("Tüm bildirimler okundu","bell"); };
 
