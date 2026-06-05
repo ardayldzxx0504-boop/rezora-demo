@@ -39,6 +39,7 @@ create table if not exists businesses (
   description   text,
   apply_note    text,          -- başvuru sırasında işletmenin admin'e notu
   status        text not null default 'pending' check (status in ('pending','approved','rejected')),
+  plan          text not null default 'free' check (plan in ('free','starter','pro')),  -- abonelik paketi
   created_at    timestamptz default now()
 );
 
@@ -85,6 +86,10 @@ create table if not exists messages (
 -- MIGRATIONS (idempotent — mevcut tablolar için güvenli)
 -- ----------------------------------------------------------------
 alter table public.businesses add column if not exists apply_note text;
+alter table public.businesses add column if not exists plan text not null default 'free';
+do $$ begin
+  alter table public.businesses add constraint businesses_plan_check check (plan in ('free','starter','pro'));
+exception when duplicate_object then null; end $$;
 alter table public.messages   add column if not exists error text;
 
 -- ----------------------------------------------------------------
@@ -135,6 +140,43 @@ drop trigger if exists trg_reservation_overlap on public.reservations;
 create trigger trg_reservation_overlap
   before insert or update on public.reservations
   for each row execute function public.check_reservation_overlap();
+
+-- ----------------------------------------------------------------
+-- PLAN BAZLI AYLIK REZERVASYON LİMİTİ (abonelik)
+--   free    -> ayda 30 rezervasyon
+--   starter -> ayda 300 rezervasyon
+--   pro     -> sınırsız
+--  Limit dolunca yeni rezervasyon PLAN_LIMIT hatası ile reddedilir.
+-- ----------------------------------------------------------------
+create or replace function public.plan_month_limit(p text)
+returns int language sql immutable as $$
+  select case p when 'free' then 30 when 'starter' then 300 else null end;
+$$;
+
+create or replace function public.check_reservation_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare lim int; cnt int; pl text;
+begin
+  select plan into pl from public.businesses where id = NEW.business_id;
+  lim := public.plan_month_limit(coalesce(pl, 'free'));
+  if lim is not null then
+    select count(*) into cnt from public.reservations r
+      where r.business_id = NEW.business_id
+        and r.status <> 'rejected'
+        and r.created_at >= date_trunc('month', now())
+        and r.created_at <  date_trunc('month', now()) + interval '1 month';
+    if cnt >= lim then
+      raise exception 'PLAN_LIMIT';
+    end if;
+  end if;
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_reservation_limit on public.reservations;
+create trigger trg_reservation_limit
+  before insert on public.reservations
+  for each row execute function public.check_reservation_limit();
 
 -- ----------------------------------------------------------------
 -- AVAILABILITY RPC (anon müşteri PII görmeden dolu aralıkları öğrenir)
@@ -238,6 +280,11 @@ values
    array['1585747860715-2ba37e788b70','1503951914875-452162b0f3f1','1605497788044-5a32c7078486','1599351431202-1e0f0137899a','1521490878406-8d3d05fd2f33'],
    'Gazimağusa''nın gözde berberi. Klasik tıraş geleneğini modern dokunuşlarla buluşturan samimi bir mekan.','approved')
 on conflict (id) do nothing;
+
+-- Demo planlar (yalnızca hâlâ varsayılan 'free' ise ayarlanır; admin değişiklikleri korunur)
+update public.businesses set plan='pro'     where id='00000000-0000-0000-0000-000000000001' and plan='free';
+update public.businesses set plan='starter' where id='00000000-0000-0000-0000-000000000002' and plan='free';
+-- Ada Barber (...0003) demo amaçlı 'free' planda kalır.
 
 insert into public.services (business_id, name, duration_min, price, popular) values
  ('00000000-0000-0000-0000-000000000001','Saç Kesimi',30,350,false),

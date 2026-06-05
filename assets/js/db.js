@@ -12,6 +12,14 @@ const Rezora = (function () {
   const _M = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
   function labelFromIso(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return d.getDate() + " " + _M[d.getMonth()]; }
 
+  /* ---- Abonelik paketleri (DB plan_month_limit ile aynı limitler) ---- */
+  const PLANS = {
+    free:    { key: "free",    name: "Demo / Free", short: "Demo",    monthlyLimit: 30,   whatsapp: false, desc: "Ayda 30 rezervasyon · 1 işletme · WhatsApp kapalı" },
+    starter: { key: "starter", name: "Starter",     short: "Starter", monthlyLimit: 300,  whatsapp: true,  desc: "Ayda 300 rezervasyon · WhatsApp açık · Temel panel" },
+    pro:     { key: "pro",     name: "Pro",         short: "Pro",     monthlyLimit: null, whatsapp: true,  desc: "Sınırsız rezervasyon · Gelişmiş raporlar · Öncelikli destek" },
+  };
+  function planInfo(key) { return PLANS[key] || PLANS.free; }
+
   const configured = !!window.SUPABASE_CONFIGURED;
   let sb = null;
   if (configured && window.supabase && window.supabase.createClient) {
@@ -34,7 +42,7 @@ const Rezora = (function () {
       rating: b.rating ? Number(b.rating) : 5, reviews: b.reviews || 0,
       img: b.img, gallery: b.gallery || [], desc: b.description || "",
       applyNote: b.apply_note || "",
-      status: b.status, createdAt: b.created_at,
+      status: b.status, plan: b.plan || "free", createdAt: b.created_at,
       services: (b.services || []).map(mapService),
       reviewsList: [],
     };
@@ -75,6 +83,8 @@ const Rezora = (function () {
     configured,
     client() { return sb; },
     previewMessage(type, r, b) { return messageText(type, r, b); },
+    PLANS,
+    planInfo,
 
     /* ============ AUTH ============ */
     async signUp(email, password, meta) {
@@ -146,6 +156,7 @@ const Rezora = (function () {
         description: payload.desc || "",
         apply_note: payload.applyNote || null,
         status: payload.status || "pending",
+        plan: PLANS[payload.plan] ? payload.plan : "free",
       };
       const { data, error } = await sb.from("businesses").insert(row).select().maybeSingle();
       if (error) return { ok: false, error: error.message };
@@ -163,11 +174,13 @@ const Rezora = (function () {
       if (patch.closeTime !== undefined) row.close_time = patch.closeTime;
       if (patch.slotMinutes !== undefined) row.slot_minutes = patch.slotMinutes;
       if (patch.status !== undefined) row.status = patch.status;
+      if (patch.plan !== undefined && PLANS[patch.plan]) row.plan = patch.plan;
       const { data, error } = await sb.from("businesses").update(row).eq("id", id).select("*, services(*)").maybeSingle();
       if (error) { console.error(error); return null; }
       return mapBusiness(data);
     },
     async setBusinessStatus(id, status) { return this.updateBusiness(id, { status }); },
+    async setBusinessPlan(id, plan) { return this.updateBusiness(id, { plan }); },
     async deleteBusiness(id) {
       if (notReady()) return { ok: false };
       const { error } = await sb.from("businesses").delete().eq("id", id);
@@ -230,8 +243,11 @@ const Rezora = (function () {
       };
       const { error } = await sb.from("reservations").insert(row);
       if (error) {
-        if ((error.message || "").indexOf("SLOT_CONFLICT") !== -1)
+        const m = error.message || "";
+        if (m.indexOf("SLOT_CONFLICT") !== -1)
           return { ok: false, error: "Bu saat az önce doldu. Lütfen başka bir saat seçin." };
+        if (m.indexOf("PLAN_LIMIT") !== -1)
+          return { ok: false, code: "PLAN_LIMIT", error: "Bu işletme bu ayki online rezervasyon kapasitesine ulaştı. Lütfen işletmeyi telefonla arayın veya bir sonraki ayı deneyin." };
         return { ok: false, error: error.message };
       }
       const r = {
@@ -275,6 +291,8 @@ const Rezora = (function () {
       const { data } = await sb.from("messages").insert(row).select().maybeSingle();
       if (!data) return null;
       let msg = mapMessage(data);
+      // Free planda WhatsApp bildirimi kapalı: mesaj kaydı tutulur ama otomatik gönderilmez ('pending' kalır).
+      if (b && b.plan === "free") return msg;
       msg = await this._deliver(msg);
       return msg;
     },
@@ -300,6 +318,13 @@ const Rezora = (function () {
       const { data } = await sb.from("messages").select("*").eq("id", id).maybeSingle();
       if (!data) return { ok: false, error: "Mesaj bulunamadı" };
       let msg = mapMessage(data);
+      // Free planda WhatsApp gönderimi kapalı.
+      const b = await this.getBusiness(msg.bizId);
+      if (b && b.plan === "free") {
+        const errTxt = "WhatsApp bildirimi Free planda kapalı. Göndermek için Starter veya Pro plana geçin.";
+        const updated = await this.updateMessageStatus(id, "failed", errTxt);
+        return { ok: false, message: updated, error: errTxt };
+      }
       await this.updateMessageStatus(id, "pending", null);
       const res = window.RezoraNotifier ? await window.RezoraNotifier.send(msg) : { status: "sent" };
       const updated = await this.updateMessageStatus(id, res.status || "sent", res.error || null);

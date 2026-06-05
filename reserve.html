@@ -244,6 +244,11 @@
       if(!res.ok){
         btn.disabled = false; btn.textContent = "Rezervasyonu oluştur ✓";
         toast(res.error || "Bir hata oluştu", "bell");
+        // Plan limiti dolduysa saat seçimi değiştirmek fayda etmez: kullanıcıyı bilgilendir, akışı bozma.
+        if(res.code === "PLAN_LIMIT"){
+          btn.disabled = true; btn.textContent = "Bu ay kapasite dolu";
+          return;
+        }
         // refresh availability and bounce user back to time step
         curIntervals = await Rezora.getTakenIntervals(b.id, sel.dateIso);
         goStep(2); sel.time = null; renderTimes();

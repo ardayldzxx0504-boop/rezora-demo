@@ -31,9 +31,13 @@
           <a href="notifications.html"><span>Bildirim Şablonları</span></a>
           <a href="admin.html" id="adminLink" class="hidden"><span>Admin Paneli</span></a>
         </nav>
-        <div class="pro-box" style="margin-top:24px;padding:16px;background:var(--purple-50);border:1px solid var(--purple-100);border-radius:var(--radius)">
-          <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem">Pro plan aktif</div>
-          <div class="muted" style="font-size:.8rem;margin-top:4px">Sınırsız rezervasyon · WhatsApp simülasyonu</div>
+        <div class="pro-box" id="planBox" style="margin-top:24px;padding:16px;background:var(--purple-50);border:1px solid var(--purple-100);border-radius:var(--radius)">
+          <div class="flex items-center justify-between" style="gap:8px">
+            <div style="font-family:var(--font-head);font-weight:700;font-size:.9rem" id="planName">—</div>
+            <span class="badge badge-purple" id="planBadge">—</span>
+          </div>
+          <div class="muted" style="font-size:.8rem;margin-top:4px" id="planDesc">—</div>
+          <div id="planUsage" style="font-size:.78rem;margin-top:8px"></div>
         </div>
       </aside>
 
@@ -242,6 +246,41 @@
       document.getElementById("todayLabel").textContent =
         `İşte ${biz.name} için bugünkü özet — ${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${TR_DAYS_FULL[d.getDay()]}`;
       renderStatusBanner();
+      renderPlanBox();
+    }
+
+    function monthlyUsed(){
+      const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+      return resList.filter(r=>{
+        if(r.status==="rejected" || !r.createdAt) return false;
+        const c = new Date(r.createdAt);
+        return c.getFullYear()===y && c.getMonth()===m;
+      }).length;
+    }
+
+    function renderPlanBox(){
+      const info = Rezora.planInfo(biz.plan);
+      document.getElementById("planName").textContent = info.name + " plan";
+      document.getElementById("planBadge").textContent = info.short;
+      document.getElementById("planDesc").textContent = info.desc;
+      const usageEl = document.getElementById("planUsage");
+      if(info.monthlyLimit === null){
+        usageEl.innerHTML = `<span class="muted">Bu ay: <strong>${monthlyUsed()}</strong> rezervasyon · sınırsız</span>`;
+      } else {
+        const used = monthlyUsed();
+        const pct = Math.min(100, Math.round(used / info.monthlyLimit * 100));
+        const danger = used >= info.monthlyLimit;
+        const near = !danger && pct >= 80;
+        const col = danger ? "var(--red-600,#dc2626)" : (near ? "#b45309" : "var(--purple-600)");
+        usageEl.innerHTML = `
+          <div class="flex justify-between" style="font-weight:600;color:${col}">
+            <span>Bu ay</span><span>${used} / ${info.monthlyLimit}</span>
+          </div>
+          <div style="height:6px;background:#e5e0f5;border-radius:99px;margin-top:5px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:99px"></div>
+          </div>
+          ${danger ? `<div style="color:${col};margin-top:6px;font-weight:600">Aylık limit doldu — yeni online rezervasyon alınamaz.</div>` : ``}`;
+      }
     }
 
     function renderStatusBanner(){
