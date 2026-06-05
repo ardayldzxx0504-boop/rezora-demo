@@ -12,13 +12,35 @@ const Rezora = (function () {
   const _M = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"];
   function labelFromIso(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return d.getDate() + " " + _M[d.getMonth()]; }
 
-  /* ---- Abonelik paketleri (DB plan_month_limit ile aynı limitler) ---- */
-  const PLANS = {
-    free:    { key: "free",    name: "Demo / Free", short: "Demo",    monthlyLimit: 30,   whatsapp: false, desc: "Ayda 30 rezervasyon · 1 işletme · WhatsApp kapalı" },
-    starter: { key: "starter", name: "Starter",     short: "Starter", monthlyLimit: 300,  whatsapp: true,  desc: "Ayda 300 rezervasyon · WhatsApp açık · Temel panel" },
-    pro:     { key: "pro",     name: "Pro",         short: "Pro",     monthlyLimit: null, whatsapp: true,  desc: "Sınırsız rezervasyon · Gelişmiş raporlar · Öncelikli destek" },
+  /* ---- Abonelik (tek model: 3 ay ücretsiz deneme) ---- */
+  const SUB_LABELS = {
+    trial:     { label: "Deneme",   cls: "badge-purple" },
+    active:    { label: "Aktif",    cls: "badge-green" },
+    expired:   { label: "Süresi doldu", cls: "badge-red" },
+    cancelled: { label: "İptal",    cls: "badge-gray" },
   };
-  function planInfo(key) { return PLANS[key] || PLANS.free; }
+  // İşletme nesnesinden etkin abonelik durumunu hesaplar (tarih bazlı).
+  function subscriptionInfo(b) {
+    const status = (b && b.subscriptionStatus) || "trial";
+    const now = Date.now();
+    let active = false, daysLeft = null, expired = false;
+    if (status === "active") {
+      active = true;
+    } else if (status === "trial") {
+      const end = b && b.trialEndsAt ? new Date(b.trialEndsAt).getTime() : null;
+      if (end === null) { active = true; }
+      else {
+        daysLeft = Math.ceil((end - now) / 86400000);
+        active = end > now;
+        expired = end <= now;
+      }
+    } else { // expired | cancelled
+      expired = status === "expired";
+    }
+    const meta = SUB_LABELS[status] || SUB_LABELS.trial;
+    return { status, active, daysLeft, expired, label: meta.label, cls: meta.cls };
+  }
+  function subActive(b) { return subscriptionInfo(b).active; }
 
   const configured = !!window.SUPABASE_CONFIGURED;
   let sb = null;
@@ -42,7 +64,12 @@ const Rezora = (function () {
       rating: b.rating ? Number(b.rating) : 5, reviews: b.reviews || 0,
       img: b.img, gallery: b.gallery || [], desc: b.description || "",
       applyNote: b.apply_note || "",
-      status: b.status, plan: b.plan || "free", createdAt: b.created_at,
+      status: b.status, createdAt: b.created_at,
+      subscriptionStatus: b.subscription_status || null,
+      trialStartedAt: b.trial_started_at || null,
+      trialEndsAt: b.trial_ends_at || null,
+      subscriptionStartedAt: b.subscription_started_at || null,
+      subscriptionEndsAt: b.subscription_ends_at || null,
       services: (b.services || []).map(mapService),
       reviewsList: [],
     };
@@ -83,8 +110,7 @@ const Rezora = (function () {
     configured,
     client() { return sb; },
     previewMessage(type, r, b) { return messageText(type, r, b); },
-    PLANS,
-    planInfo,
+    subscriptionInfo,
 
     /* ============ AUTH ============ */
     async signUp(email, password, meta) {
@@ -156,7 +182,7 @@ const Rezora = (function () {
         description: payload.desc || "",
         apply_note: payload.applyNote || null,
         status: payload.status || "pending",
-        plan: PLANS[payload.plan] ? payload.plan : "free",
+        // subscription_status / trial tarihleri onay trigger'ı (set_trial_on_approve) ile atanır.
       };
       const { data, error } = await sb.from("businesses").insert(row).select().maybeSingle();
       if (error) return { ok: false, error: error.message };
@@ -174,13 +200,42 @@ const Rezora = (function () {
       if (patch.closeTime !== undefined) row.close_time = patch.closeTime;
       if (patch.slotMinutes !== undefined) row.slot_minutes = patch.slotMinutes;
       if (patch.status !== undefined) row.status = patch.status;
-      if (patch.plan !== undefined && PLANS[patch.plan]) row.plan = patch.plan;
+      if (patch.subscriptionStatus !== undefined) row.subscription_status = patch.subscriptionStatus;
+      if (patch.trialStartedAt !== undefined) row.trial_started_at = patch.trialStartedAt;
+      if (patch.trialEndsAt !== undefined) row.trial_ends_at = patch.trialEndsAt;
+      if (patch.subscriptionStartedAt !== undefined) row.subscription_started_at = patch.subscriptionStartedAt;
+      if (patch.subscriptionEndsAt !== undefined) row.subscription_ends_at = patch.subscriptionEndsAt;
       const { data, error } = await sb.from("businesses").update(row).eq("id", id).select("*, services(*)").maybeSingle();
       if (error) { console.error(error); return null; }
       return mapBusiness(data);
     },
     async setBusinessStatus(id, status) { return this.updateBusiness(id, { status }); },
-    async setBusinessPlan(id, plan) { return this.updateBusiness(id, { plan }); },
+
+    /* ---- Abonelik yönetimi (admin) ---- */
+    async setSubscriptionStatus(id, status) { return this.updateBusiness(id, { subscriptionStatus: status }); },
+    // Aboneliği aktif yap: süresiz aktif (subscription_started_at=now, ends=null)
+    async activateSubscription(id) {
+      return this.updateBusiness(id, {
+        subscriptionStatus: "active",
+        subscriptionStartedAt: new Date().toISOString(),
+        subscriptionEndsAt: null,
+      });
+    },
+    async cancelSubscription(id) { return this.updateBusiness(id, { subscriptionStatus: "cancelled" }); },
+    // Denemeyi N ay uzat (varsayılan 1). Mevcut bitişten ileri; geçmişse şu andan itibaren.
+    async extendTrial(id, months) {
+      months = months || 1;
+      const b = await this.getBusiness(id);
+      if (!b) return null;
+      const base = (b.trialEndsAt && new Date(b.trialEndsAt).getTime() > Date.now())
+        ? new Date(b.trialEndsAt) : new Date();
+      const end = new Date(base); end.setMonth(end.getMonth() + months);
+      return this.updateBusiness(id, {
+        subscriptionStatus: "trial",
+        trialStartedAt: b.trialStartedAt || new Date().toISOString(),
+        trialEndsAt: end.toISOString(),
+      });
+    },
     async deleteBusiness(id) {
       if (notReady()) return { ok: false };
       const { error } = await sb.from("businesses").delete().eq("id", id);
@@ -246,8 +301,8 @@ const Rezora = (function () {
         const m = error.message || "";
         if (m.indexOf("SLOT_CONFLICT") !== -1)
           return { ok: false, error: "Bu saat az önce doldu. Lütfen başka bir saat seçin." };
-        if (m.indexOf("PLAN_LIMIT") !== -1)
-          return { ok: false, code: "PLAN_LIMIT", error: "Bu işletme bu ayki online rezervasyon kapasitesine ulaştı. Lütfen işletmeyi telefonla arayın veya bir sonraki ayı deneyin." };
+        if (m.indexOf("SUBSCRIPTION_INACTIVE") !== -1)
+          return { ok: false, code: "SUBSCRIPTION_INACTIVE", error: "Bu işletme şu anda online rezervasyon kabul etmiyor. Lütfen işletmeyi telefonla arayın." };
         return { ok: false, error: error.message };
       }
       const r = {
@@ -291,8 +346,8 @@ const Rezora = (function () {
       const { data } = await sb.from("messages").insert(row).select().maybeSingle();
       if (!data) return null;
       let msg = mapMessage(data);
-      // Free planda WhatsApp bildirimi kapalı: mesaj kaydı tutulur ama otomatik gönderilmez ('pending' kalır).
-      if (b && b.plan === "free") return msg;
+      // Süresi dolmuş/iptal aboneliklerde WhatsApp kapalı: mesaj kaydı tutulur ama otomatik gönderilmez ('pending' kalır).
+      if (b && !subActive(b)) return msg;
       msg = await this._deliver(msg);
       return msg;
     },
@@ -318,10 +373,10 @@ const Rezora = (function () {
       const { data } = await sb.from("messages").select("*").eq("id", id).maybeSingle();
       if (!data) return { ok: false, error: "Mesaj bulunamadı" };
       let msg = mapMessage(data);
-      // Free planda WhatsApp gönderimi kapalı.
+      // Süresi dolmuş/iptal aboneliklerde WhatsApp gönderimi kapalı.
       const b = await this.getBusiness(msg.bizId);
-      if (b && b.plan === "free") {
-        const errTxt = "WhatsApp bildirimi Free planda kapalı. Göndermek için Starter veya Pro plana geçin.";
+      if (b && !subActive(b)) {
+        const errTxt = "Aboneliğiniz aktif değil. WhatsApp bildirimi için deneme/aboneliğinizi yenileyin.";
         const updated = await this.updateMessageStatus(id, "failed", errTxt);
         return { ok: false, message: updated, error: errTxt };
       }

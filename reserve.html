@@ -137,6 +137,23 @@
     document.getElementById("bcBiz").href = "business.html?id="+b.id;
     document.getElementById("backToBiz").href = "business.html?id="+b.id;
 
+    // Abonelik aktif değilse online rezervasyon kapalı: kullanıcıyı bilgilendir, akışı engelle.
+    const subOk = Rezora.subscriptionInfo(b).active;
+    if(!subOk){
+      const card = document.querySelector(".flow-card");
+      if(card) card.innerHTML = `
+        <div style="text-align:center;padding:30px 16px">
+          <div style="font-size:2rem;margin-bottom:8px">📵</div>
+          <h3 style="margin-bottom:8px">Bu işletme şu anda online rezervasyon almıyor</h3>
+          <p class="muted" style="max-width:420px;margin:0 auto 18px">Aboneliği aktif olmadığı için online rezervasyon geçici olarak kapalı. Lütfen randevu için işletmeyi telefonla arayın.</p>
+          ${b.phone?`<a class="btn btn-primary" href="tel:${b.phone.replace(/\s/g,'')}">${b.phone} · Ara</a>`:``}
+          <div style="margin-top:14px"><a class="btn btn-ghost" href="business.html?id=${b.id}">← İşletme sayfasına dön</a></div>
+        </div>`;
+      const steps = document.querySelector(".steps"); if(steps) steps.style.display = "none";
+      buildFooter();
+      return;
+    }
+
     // STEP 1 services
     function renderSvc(){
       document.getElementById("svcList").innerHTML = services.map(s=>{
@@ -244,9 +261,9 @@
       if(!res.ok){
         btn.disabled = false; btn.textContent = "Rezervasyonu oluştur ✓";
         toast(res.error || "Bir hata oluştu", "bell");
-        // Plan limiti dolduysa saat seçimi değiştirmek fayda etmez: kullanıcıyı bilgilendir, akışı bozma.
-        if(res.code === "PLAN_LIMIT"){
-          btn.disabled = true; btn.textContent = "Bu ay kapasite dolu";
+        // Abonelik aktif değilse saat seçimi değiştirmek fayda etmez: kullanıcıyı bilgilendir.
+        if(res.code === "SUBSCRIPTION_INACTIVE"){
+          btn.disabled = true; btn.textContent = "Online rezervasyon kapalı";
           return;
         }
         // refresh availability and bounce user back to time step

@@ -39,7 +39,12 @@ create table if not exists businesses (
   description   text,
   apply_note    text,          -- başvuru sırasında işletmenin admin'e notu
   status        text not null default 'pending' check (status in ('pending','approved','rejected')),
-  plan          text not null default 'free' check (plan in ('free','starter','pro')),  -- abonelik paketi
+  -- Abonelik (tek model): onaylanınca 3 ay ücretsiz deneme başlar
+  subscription_status   text check (subscription_status in ('trial','active','expired','cancelled')),
+  trial_started_at      timestamptz,
+  trial_ends_at         timestamptz,
+  subscription_started_at timestamptz,
+  subscription_ends_at    timestamptz,
   created_at    timestamptz default now()
 );
 
@@ -86,11 +91,32 @@ create table if not exists messages (
 -- MIGRATIONS (idempotent — mevcut tablolar için güvenli)
 -- ----------------------------------------------------------------
 alter table public.businesses add column if not exists apply_note text;
-alter table public.businesses add column if not exists plan text not null default 'free';
-do $$ begin
-  alter table public.businesses add constraint businesses_plan_check check (plan in ('free','starter','pro'));
-exception when duplicate_object then null; end $$;
 alter table public.messages   add column if not exists error text;
+
+-- Abonelik alanları (idempotent)
+alter table public.businesses add column if not exists subscription_status text;
+alter table public.businesses add column if not exists trial_started_at timestamptz;
+alter table public.businesses add column if not exists trial_ends_at timestamptz;
+alter table public.businesses add column if not exists subscription_started_at timestamptz;
+alter table public.businesses add column if not exists subscription_ends_at timestamptz;
+do $$ begin
+  alter table public.businesses add constraint businesses_subscription_status_check
+    check (subscription_status in ('trial','active','expired','cancelled'));
+exception when duplicate_object then null; end $$;
+
+-- Eski plan (free/starter/pro) sistemini kaldır
+drop trigger if exists trg_reservation_limit on public.reservations;
+drop function if exists public.check_reservation_limit() cascade;
+drop function if exists public.plan_month_limit(text) cascade;
+alter table public.businesses drop constraint if exists businesses_plan_check;
+alter table public.businesses drop column if exists plan;
+
+-- Mevcut onaylı işletmeleri geriye dönük olarak 3 aylık denemeye al
+update public.businesses
+  set subscription_status = 'trial',
+      trial_started_at = now(),
+      trial_ends_at = now() + interval '3 months'
+  where status = 'approved' and subscription_status is null;
 
 -- ----------------------------------------------------------------
 -- HELPER FUNCTIONS (security definer => RLS özyinelemesini önler)
@@ -142,41 +168,51 @@ create trigger trg_reservation_overlap
   for each row execute function public.check_reservation_overlap();
 
 -- ----------------------------------------------------------------
--- PLAN BAZLI AYLIK REZERVASYON LİMİTİ (abonelik)
---   free    -> ayda 30 rezervasyon
---   starter -> ayda 300 rezervasyon
---   pro     -> sınırsız
---  Limit dolunca yeni rezervasyon PLAN_LIMIT hatası ile reddedilir.
+-- ABONELİK: onaylanınca 3 ay ücretsiz deneme başlat
+--  İşletme 'approved' olduğunda ve henüz deneme başlamamışsa
+--  subscription_status='trial', trial_started_at=now(), trial_ends_at=now()+3 ay.
+--  Admin sonradan active/expired/cancelled yaparsa bu trigger üzerine yazmaz.
 -- ----------------------------------------------------------------
-create or replace function public.plan_month_limit(p text)
-returns int language sql immutable as $$
-  select case p when 'free' then 30 when 'starter' then 300 else null end;
-$$;
-
-create or replace function public.check_reservation_limit()
-returns trigger language plpgsql security definer set search_path = public as $$
-declare lim int; cnt int; pl text;
+create or replace function public.set_trial_on_approve()
+returns trigger language plpgsql as $$
 begin
-  select plan into pl from public.businesses where id = NEW.business_id;
-  lim := public.plan_month_limit(coalesce(pl, 'free'));
-  if lim is not null then
-    select count(*) into cnt from public.reservations r
-      where r.business_id = NEW.business_id
-        and r.status <> 'rejected'
-        and r.created_at >= date_trunc('month', now())
-        and r.created_at <  date_trunc('month', now()) + interval '1 month';
-    if cnt >= lim then
-      raise exception 'PLAN_LIMIT';
-    end if;
+  if NEW.status = 'approved'
+     and NEW.trial_started_at is null
+     and (NEW.subscription_status is null or NEW.subscription_status = 'trial') then
+    NEW.subscription_status := 'trial';
+    NEW.trial_started_at := now();
+    NEW.trial_ends_at := now() + interval '3 months';
   end if;
   return NEW;
 end;
 $$;
 
-drop trigger if exists trg_reservation_limit on public.reservations;
-create trigger trg_reservation_limit
+drop trigger if exists trg_set_trial_on_approve on public.businesses;
+create trigger trg_set_trial_on_approve
+  before insert or update on public.businesses
+  for each row execute function public.set_trial_on_approve();
+
+-- ----------------------------------------------------------------
+-- ABONELİK GUARD: yalnızca trial (süresi geçmemiş) veya active işletmeler
+--  yeni rezervasyon alabilir. Aksi halde SUBSCRIPTION_INACTIVE.
+-- ----------------------------------------------------------------
+create or replace function public.check_subscription_active()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare st text; te timestamptz;
+begin
+  select subscription_status, trial_ends_at into st, te
+    from public.businesses where id = NEW.business_id;
+  st := coalesce(st, 'trial');
+  if st = 'active' then return NEW; end if;
+  if st = 'trial' and (te is null or te > now()) then return NEW; end if;
+  raise exception 'SUBSCRIPTION_INACTIVE';
+end;
+$$;
+
+drop trigger if exists trg_reservation_subscription on public.reservations;
+create trigger trg_reservation_subscription
   before insert on public.reservations
-  for each row execute function public.check_reservation_limit();
+  for each row execute function public.check_subscription_active();
 
 -- ----------------------------------------------------------------
 -- AVAILABILITY RPC (anon müşteri PII görmeden dolu aralıkları öğrenir)
@@ -281,10 +317,7 @@ values
    'Gazimağusa''nın gözde berberi. Klasik tıraş geleneğini modern dokunuşlarla buluşturan samimi bir mekan.','approved')
 on conflict (id) do nothing;
 
--- Demo planlar (yalnızca hâlâ varsayılan 'free' ise ayarlanır; admin değişiklikleri korunur)
-update public.businesses set plan='pro'     where id='00000000-0000-0000-0000-000000000001' and plan='free';
-update public.businesses set plan='starter' where id='00000000-0000-0000-0000-000000000002' and plan='free';
--- Ada Barber (...0003) demo amaçlı 'free' planda kalır.
+-- Demo işletmeler onaylı olduğundan trg_set_trial_on_approve ile otomatik 3 aylık denemeye girer.
 
 insert into public.services (business_id, name, duration_min, price, popular) values
  ('00000000-0000-0000-0000-000000000001','Saç Kesimi',30,350,false),

@@ -53,10 +53,8 @@
               <div class="field-group"><label>Randevu aralığı (dk)</label>
                 <select class="input" id="aSlot"><option>15</option><option selected>30</option><option>45</option><option>60</option></select>
               </div>
-              <div class="field-group"><label>Abonelik planı</label>
-                <select class="input" id="aPlan"></select>
-              </div>
             </div>
+            <p class="muted" style="margin-top:10px;font-size:.82rem">Eklenen işletme onaylı olarak yayına alınır ve otomatik 3 ay ücretsiz deneme başlar.</p>
             <button class="btn btn-primary" type="submit" style="margin-top:16px">İşletme ekle (onaylı)</button>
           </form>
         </div>
@@ -108,13 +106,12 @@
         <button class="nav-toggle" onclick="closeDetail()" aria-label="Kapat" id="dmClose"></button>
       </div>
       <div id="dmRows"></div>
-      <div class="rz-modal-row" style="align-items:center">
-        <span class="k">Abonelik planı</span>
-        <span class="v" style="display:flex;gap:8px;align-items:center">
-          <select class="input" id="dmPlan" style="height:38px;padding:4px 10px"></select>
-          <button class="btn btn-soft btn-sm" id="dmPlanSave" type="button">Kaydet</button>
-        </span>
+
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-200)">
+        <div style="font-family:var(--font-head);font-weight:700;font-size:.95rem;margin-bottom:10px">Abonelik yönetimi</div>
+        <div class="flex gap-8 flex-wrap" id="dmSubActions"></div>
       </div>
+
       <div class="flex gap-8 flex-wrap" id="dmActions" style="margin-top:18px"></div>
     </div>
   </div>
@@ -132,14 +129,12 @@
     };
     let all = [];
 
-    const planOpts = Object.values(Rezora.PLANS).map(p=>`<option value="${p.key}">${p.name}</option>`).join("");
-    document.getElementById("aPlan").innerHTML = planOpts;
-    document.getElementById("dmPlan").innerHTML = planOpts;
-
-    function planBadge(b){
-      const info = Rezora.planInfo(b.plan);
-      const cls = b.plan==='pro' ? 'badge-purple' : (b.plan==='starter' ? 'badge-green' : 'badge-gray');
-      return `<span class="badge ${cls}" style="margin-left:6px">${info.short}</span>`;
+    function subBadge(b){
+      if(b.status !== "approved") return "";
+      const info = Rezora.subscriptionInfo(b);
+      let txt = info.label;
+      if(info.status === "trial" && info.active && info.daysLeft !== null) txt = `Deneme · ${info.daysLeft}g`;
+      return `<span class="badge ${info.cls}" style="margin-left:6px">${txt}</span>`;
     }
 
     function showGuard(title, text){
@@ -179,7 +174,7 @@
 
     function rowHtml(b, withStatus){
       return `<tr>
-        <td><div style="font-weight:700">${b.name}${planBadge(b)}</div><div class="cphone">${b.area||''}</div></td>
+        <td><div style="font-weight:700">${b.name}${subBadge(b)}</div><div class="cphone">${b.area||''}</div></td>
         <td>${b.categoryName}</td>
         <td>${b.city||'—'}</td>
         <td>${withStatus ? `<span class="badge ${statusMap[b.status].cls}"><span class="dot"></span> ${statusMap[b.status].label}</span>` : fmtDate(b.createdAt)}</td>
@@ -210,6 +205,10 @@
       stEl.className = "badge " + st.cls; stEl.innerHTML = `<span class="dot"></span> ${st.label}`;
 
       const owner = await Rezora.getOwnerInfo(b.ownerId);
+      const sub = Rezora.subscriptionInfo(b);
+      const subText = (sub.status === "trial" && sub.active && sub.daysLeft !== null)
+        ? `${sub.label} · ${sub.daysLeft} gün kaldı`
+        : sub.label;
       const rows = [
         ["Kategori", b.categoryName],
         ["Şehir", b.city || "—"],
@@ -220,12 +219,26 @@
         ["Hizmet sayısı", String((b.services||[]).length)],
         ["Başvuru tarihi", fmtDate(b.createdAt)],
         ["Başvuru notu", b.applyNote || "—"],
+        ["Abonelik durumu", subText],
+        ["Deneme başlangıcı", b.trialStartedAt ? fmtDate(b.trialStartedAt) : "—"],
+        ["Deneme bitişi", b.trialEndsAt ? fmtDate(b.trialEndsAt) : "—"],
+        ["Abonelik başlangıcı", b.subscriptionStartedAt ? fmtDate(b.subscriptionStartedAt) : "—"],
+        ["Abonelik bitişi", b.subscriptionEndsAt ? fmtDate(b.subscriptionEndsAt) : "—"],
       ];
       document.getElementById("dmRows").innerHTML = rows.map(([k,v])=>`
         <div class="rz-modal-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
 
-      document.getElementById("dmPlan").value = b.plan || "free";
-      document.getElementById("dmPlanSave").onclick = ()=>savePlan(b.id);
+      // Abonelik yönetim butonları
+      let subActions = "";
+      if(b.status === "approved"){
+        subActions += `<button class="btn btn-primary btn-sm" onclick="subActivate('${b.id}')">Aboneliği aktif yap</button>`;
+        subActions += `<button class="btn btn-soft btn-sm" onclick="subExtend('${b.id}')">Denemeyi 1 ay uzat</button>`;
+        subActions += `<button class="btn btn-soft btn-sm" onclick="subSet('${b.id}','expired')">Süresi doldu</button>`;
+        subActions += `<button class="btn btn-logout btn-sm" onclick="subSet('${b.id}','cancelled')">Aboneliği iptal et</button>`;
+      } else {
+        subActions = `<span class="muted" style="font-size:.85rem">Abonelik, işletme onaylandığında başlar.</span>`;
+      }
+      document.getElementById("dmSubActions").innerHTML = subActions;
 
       let actions = "";
       if(b.status!=="approved") actions += `<button class="btn btn-primary btn-sm" onclick="setStatus('${b.id}','approved')">Onayla</button>`;
@@ -246,13 +259,24 @@
       closeDetail();
       await load();
     };
-    window.savePlan = async function(id){
-      const plan = document.getElementById("dmPlan").value;
-      const res = await Rezora.setBusinessPlan(id, plan);
-      if(!res){ toast("Plan güncellenemedi (yetki/RLS)","bell"); return; }
-      toast("Plan güncellendi: " + Rezora.planInfo(plan).name + " ✓","ok");
+    async function afterSub(id, ok, okMsg){
+      if(!ok){ toast("Güncellenemedi (yetki/RLS)","bell"); return; }
+      toast(okMsg,"ok");
       await load();
       detail(id);
+    }
+    window.subActivate = async function(id){
+      const res = await Rezora.activateSubscription(id);
+      await afterSub(id, !!res, "Abonelik aktif edildi ✓");
+    };
+    window.subExtend = async function(id){
+      const res = await Rezora.extendTrial(id, 1);
+      await afterSub(id, !!res, "Deneme süresi 1 ay uzatıldı ✓");
+    };
+    window.subSet = async function(id, status){
+      const res = await Rezora.setSubscriptionStatus(id, status);
+      const label = status==="expired" ? "süresi doldu" : "iptal edildi";
+      await afterSub(id, !!res, "Abonelik " + label);
     };
     window.delBiz = async function(id){
       const b = all.find(x=>x.id===id);
@@ -275,7 +299,6 @@
         openTime: document.getElementById("aOpen").value || "10:00",
         closeTime: document.getElementById("aClose").value || "20:00",
         slotMinutes: +document.getElementById("aSlot").value,
-        plan: document.getElementById("aPlan").value,
         status: "approved",
       });
       if(!created.ok){ toast(created.error || "Eklenemedi","bell"); return; }
