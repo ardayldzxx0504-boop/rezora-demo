@@ -91,6 +91,28 @@
             </table>
           </div>
         </div>
+
+        <!-- CANLI DESTEK -->
+        <div class="panel" style="margin-top:24px">
+          <div class="panel-head">
+            <h3>Canlı Destek <span class="badge badge-red" id="supUnread" style="margin-left:8px;display:none">0</span></h3>
+            <span class="badge badge-green"><span class="dot"></span> Realtime</span>
+          </div>
+          <div class="sup-admin">
+            <div class="sup-admin-list" id="supList"></div>
+            <div class="sup-admin-chat">
+              <div class="sup-admin-empty" id="supEmpty">Soldan bir destek konuşması seçin.</div>
+              <div id="supConvo" class="hidden">
+                <div class="sup-admin-chat-head" id="supHead"></div>
+                <div class="sup-admin-msgs" id="supMsgs"></div>
+                <form class="sup-admin-reply" id="supReplyForm">
+                  <input class="input" id="supReplyInput" placeholder="Yanıt yazın..." autocomplete="off">
+                  <button class="btn btn-primary" type="submit">Gönder</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -313,6 +335,121 @@
       renderKpi(); renderSections();
     }
 
+    /* ===================== CANLI DESTEK (admin) ===================== */
+    const SUP_STATUS = {
+      open:        {label:"Açık",      cls:"badge-amber"},
+      in_progress: {label:"İşlemde",   cls:"badge-purple"},
+      closed:      {label:"Kapalı",    cls:"badge-gray"},
+    };
+    let supThreads = [], supActiveId = null, supMsgs = [], supChannel = null;
+
+    function supInitials(n){ return (n||"?").split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); }
+    function supTime(iso){ const d=new Date(iso); return d.toLocaleDateString('tr-TR')+" "+String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0'); }
+    function supEsc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+    async function loadSupport(){
+      supThreads = await Rezora.getSupportThreads();
+      renderSupList();
+      const totalUnread = supThreads.reduce((a,t)=>a+(t.unread||0),0);
+      const badge = document.getElementById("supUnread");
+      badge.textContent = totalUnread; badge.style.display = totalUnread>0 ? "inline-flex" : "none";
+    }
+
+    function renderSupList(){
+      const el = document.getElementById("supList");
+      if(!supThreads.length){ el.innerHTML = `<div class="sup-admin-empty" style="padding:24px 10px">Henüz destek konuşması yok.</div>`; return; }
+      el.innerHTML = supThreads.map(t=>{
+        const st = SUP_STATUS[t.status] || SUP_STATUS.open;
+        return `<button class="sup-thread ${t.id===supActiveId?'active':''}" onclick="openSupThread('${t.id}')">
+          <div class="sup-thread-av">${supInitials(t.userName)}</div>
+          <div class="sup-thread-main">
+            <div class="sup-thread-top"><span class="sup-thread-name">${supEsc(t.userName)}</span>${t.unread?`<span class="sup-unread-dot">${t.unread}</span>`:``}</div>
+            <div class="sup-thread-sub">${supEsc(t.subject||"Konu belirtilmedi")}</div>
+            <span class="badge ${st.cls}" style="margin-top:5px">${st.label}</span>
+          </div>
+        </button>`;
+      }).join("");
+    }
+
+    window.openSupThread = async function(id){
+      supActiveId = id;
+      document.getElementById("supEmpty").classList.add("hidden");
+      document.getElementById("supConvo").classList.remove("hidden");
+      supMsgs = await Rezora.getSupportMessages(id);
+      await Rezora.markThreadRead(id);
+      renderSupHead(); renderSupMsgs();
+      renderSupList();
+      await loadSupport(); // okundu sayısını güncelle
+    };
+
+    function renderSupHead(){
+      const t = supThreads.find(x=>x.id===supActiveId); if(!t) return;
+      const st = SUP_STATUS[t.status] || SUP_STATUS.open;
+      document.getElementById("supHead").innerHTML = `
+        <div>
+          <div style="font-family:var(--font-head);font-weight:800">${supEsc(t.userName)} <span class="badge ${st.cls}" style="margin-left:6px">${st.label}</span></div>
+          <div class="cphone">${supEsc(t.phone||'—')}${t.email?(' · '+supEsc(t.email)):''}${t.subject?(' · '+supEsc(t.subject)):''}</div>
+        </div>
+        <div class="flex gap-8 flex-wrap">
+          <button class="btn btn-soft btn-sm" onclick="supSetStatus('open')">Açık</button>
+          <button class="btn btn-soft btn-sm" onclick="supSetStatus('in_progress')">İşlemde</button>
+          <button class="btn btn-logout btn-sm" onclick="supSetStatus('closed')">Kapat</button>
+        </div>`;
+    }
+
+    function renderSupMsgs(){
+      const box = document.getElementById("supMsgs");
+      box.innerHTML = supMsgs.length ? supMsgs.map(m=>{
+        const who = m.sender==="admin" ? "admin" : "user";
+        return `<div class="rz-bubble-row ${who==='admin'?'user':'admin'}">
+          <div class="rz-bubble ${who==='admin'?'user':'admin'}">${supEsc(m.message)}<span class="rz-bubble-time">${supTime(m.createdAt)}</span></div>
+        </div>`;
+      }).join("") : `<div class="sup-admin-empty">Mesaj yok.</div>`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    document.getElementById("supReplyForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const input = document.getElementById("supReplyInput");
+      const text = input.value.trim();
+      if(!text || !supActiveId) return;
+      input.disabled = true;
+      const res = await Rezora.supportReply(supActiveId, text);
+      input.disabled = false;
+      if(!res.ok){ toast(res.error || "Gönderilemedi","bell"); return; }
+      input.value = "";
+      supMsgs = await Rezora.getSupportMessages(supActiveId);
+      renderSupMsgs(); input.focus();
+      await loadSupport();
+    });
+
+    window.supSetStatus = async function(status){
+      if(!supActiveId) return;
+      const res = await Rezora.setSupportStatus(supActiveId, status);
+      if(!res.ok){ toast(res.error || "Güncellenemedi","bell"); return; }
+      toast("Durum güncellendi: " + (SUP_STATUS[status]||{}).label,"ok");
+      await loadSupport(); renderSupHead();
+    };
+
+    function setupSupportRealtime(){
+      Rezora.unsubscribe(supChannel);
+      supChannel = Rezora.subscribeSupport({
+        onMessage: async (m)=>{
+          await loadSupport();
+          if(m && m.threadId === supActiveId){
+            supMsgs = await Rezora.getSupportMessages(supActiveId);
+            if(m.sender === "user") await Rezora.markThreadRead(supActiveId);
+            renderSupMsgs();
+            await loadSupport();
+          } else if(m && m.sender === "user"){
+            toast("Yeni destek mesajı geldi","bell");
+          }
+        },
+        onThread: async ()=>{ await loadSupport(); if(supActiveId) renderSupHead(); },
+      });
+    }
+    window.addEventListener("beforeunload", ()=>{ Rezora.unsubscribe(supChannel); });
+
     (async()=>{
       if(!Rezora.configured){ showGuard("Supabase yapılandırılmadı", "assets/js/supabase-config.js dosyasına Project URL + anon key girin ve supabase/schema.sql dosyasını çalıştırın."); return; }
       const session = await Rezora.getSession();
@@ -321,6 +458,8 @@
       if(!admin){ showGuard("Bu alana erişim yetkin yok", "Admin paneli yalnızca yönetici hesapları içindir."); return; }
       document.getElementById("adminBody").classList.remove("hidden");
       await load();
+      await loadSupport();
+      setupSupportRealtime();
     })();
 
     buildFooter();

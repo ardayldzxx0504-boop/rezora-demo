@@ -727,3 +727,96 @@ h1, h2, h3, h4, h5 { font-family: var(--font-head); font-weight: 800; line-heigh
 .w-full{width:100%}
 .items-center{align-items:center}.justify-between{justify-content:space-between}
 .flex-wrap{flex-wrap:wrap}
+
+/* ======================= Canlı Destek Widget ======================= */
+.rz-support-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 1000;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 13px 20px 13px 16px; border: none; cursor: pointer;
+  background: var(--grad-purple); color: #fff; border-radius: var(--radius-full);
+  font-family: var(--font-head); font-weight: 700; font-size: .95rem;
+  box-shadow: var(--shadow-purple); transition: transform .18s, box-shadow .18s;
+}
+.rz-support-fab:hover { transform: translateY(-2px); box-shadow: 0 20px 48px rgba(124,58,237,.36); }
+.rz-support-fab svg { width: 22px; height: 22px; }
+.rz-support-fab.active .rz-sup-fab-txt { display: none; }
+.rz-support-fab.active { padding: 14px; }
+.rz-sup-dot { display: none; position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; background: var(--red-500); border: 2px solid #fff; border-radius: 50%; }
+
+.rz-support-panel {
+  position: fixed; right: 22px; bottom: 92px; z-index: 1001;
+  width: 372px; max-width: calc(100vw - 32px); height: 540px; max-height: calc(100vh - 130px);
+  background: #fff; border-radius: var(--radius-lg); box-shadow: var(--shadow-xl);
+  display: flex; flex-direction: column; overflow: hidden;
+  opacity: 0; transform: translateY(16px) scale(.98); pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.rz-support-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+.rz-sup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px; background: var(--grad-purple); color: #fff; }
+.rz-sup-head-l { display: flex; align-items: center; gap: 11px; }
+.rz-sup-avatar { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.18); display: grid; place-items: center; }
+.rz-sup-avatar svg { width: 21px; height: 21px; }
+.rz-sup-title { font-family: var(--font-head); font-weight: 800; font-size: 1.02rem; }
+.rz-sup-sub { font-size: .76rem; opacity: .82; margin-top: 1px; }
+.rz-sup-x { background: rgba(255,255,255,.16); border: none; color: #fff; width: 32px; height: 32px; border-radius: 10px; cursor: pointer; display: grid; place-items: center; }
+.rz-sup-x:hover { background: rgba(255,255,255,.28); }
+.rz-sup-x svg { width: 18px; height: 18px; }
+
+.rz-sup-body { flex: 1; overflow-y: auto; padding: 16px; background: var(--gray-50); }
+.rz-sup-intro p { font-size: .9rem; color: var(--gray-600); line-height: 1.5; margin-bottom: 14px; }
+.rz-sup-err { background: var(--red-50); color: #b91c1c; border: 1px solid #f6c2c2; border-radius: 10px; padding: 9px 12px; font-size: .83rem; margin-bottom: 12px; }
+
+.rz-sup-form { display: flex; flex-direction: column; gap: 10px; }
+.rz-sup-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--gray-200); border-radius: 11px; background: #fff; color: var(--ink); font-family: inherit; font-size: .9rem; resize: vertical; }
+.rz-sup-input:focus { outline: none; border-color: var(--purple-500); box-shadow: 0 0 0 4px rgba(124,58,237,.1); }
+.rz-sup-send-btn { margin-top: 2px; padding: 12px; border: none; border-radius: 11px; background: var(--grad-purple); color: #fff; font-family: var(--font-head); font-weight: 700; font-size: .92rem; cursor: pointer; }
+.rz-sup-send-btn:disabled { opacity: .6; cursor: default; }
+
+.rz-sup-msgs { display: flex; flex-direction: column; gap: 8px; }
+.rz-sup-empty { text-align: center; color: var(--gray-400); font-size: .85rem; padding: 24px 8px; }
+.rz-bubble-row { display: flex; }
+.rz-bubble-row.user { justify-content: flex-end; }
+.rz-bubble-row.admin { justify-content: flex-start; }
+.rz-bubble { position: relative; max-width: 80%; padding: 10px 13px 16px; border-radius: 16px; font-size: .9rem; line-height: 1.45; word-break: break-word; box-shadow: var(--shadow-xs); }
+.rz-bubble.user { background: var(--grad-purple); color: #fff; border-bottom-right-radius: 5px; }
+.rz-bubble.admin { background: #fff; color: var(--ink); border: 1px solid var(--gray-200); border-bottom-left-radius: 5px; }
+.rz-bubble-time { position: absolute; right: 11px; bottom: 4px; font-size: .64rem; opacity: .7; }
+
+.rz-sup-foot { padding: 12px; border-top: 1px solid var(--gray-200); background: #fff; }
+.rz-sup-reply { display: flex; gap: 8px; align-items: center; }
+.rz-sup-reply .rz-sup-input { flex: 1; }
+.rz-sup-icon-btn { flex-shrink: 0; width: 44px; height: 44px; border: none; border-radius: 12px; background: var(--grad-purple); color: #fff; cursor: pointer; display: grid; place-items: center; }
+.rz-sup-icon-btn svg { width: 19px; height: 19px; }
+.rz-sup-closed { text-align: center; font-size: .85rem; color: var(--gray-500); }
+.rz-sup-link { background: none; border: none; color: var(--purple-600); font-weight: 700; cursor: pointer; font-size: .85rem; padding: 0; }
+
+@media (max-width: 480px) {
+  .rz-support-fab { right: 16px; bottom: 16px; }
+  .rz-support-panel { right: 0; left: 0; bottom: 0; width: 100%; max-width: 100%; height: 82vh; max-height: 82vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
+
+/* ----- Admin: Canlı Destek paneli ----- */
+.sup-admin { display: grid; grid-template-columns: 300px 1fr; min-height: 440px; }
+.sup-admin-list { border-right: 1px solid var(--gray-200); max-height: 540px; overflow-y: auto; }
+.sup-thread { width: 100%; display: flex; gap: 11px; align-items: flex-start; text-align: left; padding: 14px 16px; border: none; border-bottom: 1px solid var(--gray-100); background: #fff; cursor: pointer; transition: background .15s; }
+.sup-thread:hover { background: var(--gray-50); }
+.sup-thread.active { background: var(--purple-50); }
+.sup-thread-av { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; background: var(--purple-100); color: var(--purple-700); display: grid; place-items: center; font-family: var(--font-head); font-weight: 800; font-size: .8rem; }
+.sup-thread-main { min-width: 0; flex: 1; }
+.sup-thread-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sup-thread-name { font-weight: 700; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sup-thread-sub { font-size: .8rem; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.sup-unread-dot { flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--red-500); color: #fff; font-size: .72rem; font-weight: 700; display: grid; place-items: center; }
+
+.sup-admin-chat { display: flex; flex-direction: column; min-width: 0; }
+.sup-admin-empty { flex: 1; display: grid; place-items: center; color: var(--gray-400); font-size: .9rem; padding: 30px; }
+.sup-admin-chat-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--gray-200); }
+.sup-admin-msgs { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; max-height: 420px; overflow-y: auto; background: var(--gray-50); }
+.sup-admin-reply { display: flex; gap: 10px; padding: 13px 16px; border-top: 1px solid var(--gray-200); }
+.sup-admin-reply .input { flex: 1; }
+
+@media (max-width: 720px) {
+  .sup-admin { grid-template-columns: 1fr; }
+  .sup-admin-list { border-right: none; border-bottom: 1px solid var(--gray-200); max-height: 260px; }
+}

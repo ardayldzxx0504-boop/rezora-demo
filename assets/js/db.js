@@ -88,6 +88,14 @@ const Rezora = (function () {
     return { id: m.id, reservationId: m.reservation_id, bizId: m.business_id, to: m.to_phone,
              channel: m.channel, type: m.type, text: m.text, status: m.status, error: m.error || null, sentAt: m.sent_at };
   }
+  function mapSupportThread(t) {
+    return { id: t.id, userName: t.user_name, phone: t.phone, email: t.email, subject: t.subject,
+             status: t.status, createdAt: t.created_at, updatedAt: t.updated_at, unread: 0 };
+  }
+  function mapSupportMessage(m) {
+    return { id: m.id, threadId: m.thread_id, sender: m.sender_type, message: m.message,
+             createdAt: m.created_at, readAt: m.read_at || null };
+  }
 
   function notReady() { return !sb; }
 
@@ -423,6 +431,89 @@ const Rezora = (function () {
       return ch;
     },
     unsubscribe(ch) { if (sb && ch) sb.removeChannel(ch); },
+
+    /* ============ CANLI DESTEK (in-app support chat) ============ */
+    // --- Public (anon) tarafı: yalnızca RPC üzerinden ---
+    async supportStart(payload) {
+      if (notReady()) return { ok: false, error: "Supabase yapılandırılmadı." };
+      const { data, error } = await sb.rpc("support_start", {
+        p_name: payload.name, p_phone: payload.phone || null,
+        p_email: payload.email || null, p_subject: payload.subject || null,
+        p_message: payload.message,
+      });
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, threadId: data };
+    },
+    async supportSend(threadId, message) {
+      if (notReady()) return { ok: false, error: "Supabase yapılandırılmadı." };
+      const { error } = await sb.rpc("support_user_send", { p_thread: threadId, p_message: message });
+      if (error) {
+        const m = error.message || "";
+        if (m.indexOf("THREAD_CLOSED") !== -1) return { ok: false, error: "Bu konuşma kapatıldı. Yeni bir destek talebi oluşturabilirsiniz." };
+        if (m.indexOf("THREAD_NOT_FOUND") !== -1) return { ok: false, error: "Konuşma bulunamadı.", notFound: true };
+        return { ok: false, error: m };
+      }
+      return { ok: true };
+    },
+    async supportFetch(threadId) {
+      if (notReady() || !threadId) return null;
+      const { data, error } = await sb.rpc("support_thread", { p_thread: threadId });
+      if (error || !data || !data.thread) return null;
+      return {
+        thread: mapSupportThread(data.thread),
+        messages: (data.messages || []).map(mapSupportMessage),
+      };
+    },
+
+    // --- Admin tarafı: doğrudan tablo (RLS=is_admin) ---
+    async getSupportThreads() {
+      if (notReady()) return [];
+      const { data, error } = await sb.from("support_threads").select("*").order("updated_at", { ascending: false });
+      if (error) { console.error(error); return []; }
+      const threads = (data || []).map(mapSupportThread);
+      const { data: un } = await sb.from("support_messages")
+        .select("thread_id").eq("sender_type", "user").is("read_at", null);
+      const counts = {};
+      (un || []).forEach(r => { counts[r.thread_id] = (counts[r.thread_id] || 0) + 1; });
+      threads.forEach(t => { t.unread = counts[t.id] || 0; });
+      return threads;
+    },
+    async getSupportMessages(threadId) {
+      if (notReady() || !threadId) return [];
+      const { data, error } = await sb.from("support_messages").select("*")
+        .eq("thread_id", threadId).order("created_at", { ascending: true });
+      if (error) { console.error(error); return []; }
+      return (data || []).map(mapSupportMessage);
+    },
+    async supportReply(threadId, message) {
+      if (notReady()) return { ok: false };
+      const { error } = await sb.from("support_messages").insert({ thread_id: threadId, sender_type: "admin", message });
+      if (error) return { ok: false, error: error.message };
+      await sb.from("support_threads").update({ updated_at: new Date().toISOString() }).eq("id", threadId);
+      return { ok: true };
+    },
+    async setSupportStatus(threadId, status) {
+      if (notReady()) return { ok: false };
+      const { error } = await sb.from("support_threads").update({ status, updated_at: new Date().toISOString() }).eq("id", threadId);
+      return { ok: !error, error: error && error.message };
+    },
+    async markThreadRead(threadId) {
+      if (notReady()) return;
+      await sb.from("support_messages").update({ read_at: new Date().toISOString() })
+        .eq("thread_id", threadId).eq("sender_type", "user").is("read_at", null);
+    },
+    // Admin realtime: yeni destek mesajı/konuşması
+    subscribeSupport(handlers) {
+      if (notReady()) return null;
+      handlers = handlers || {};
+      const ch = sb.channel("rt-support")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" },
+          (p) => handlers.onMessage && handlers.onMessage(mapSupportMessage(p.new)))
+        .on("postgres_changes", { event: "*", schema: "public", table: "support_threads" },
+          (p) => handlers.onThread && handlers.onThread(p.new ? mapSupportThread(p.new) : null))
+        .subscribe();
+      return ch;
+    },
   };
 
   function toMin(t) { const p = (t || "0:0").split(":"); return (+p[0]) * 60 + (+p[1] || 0); }

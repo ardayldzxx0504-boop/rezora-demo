@@ -301,6 +301,101 @@ begin
   begin alter publication supabase_realtime add table public.messages;     exception when duplicate_object then null; end;
 end $$;
 
+-- ================================================================
+-- CANLI DESTEK (in-app support chat)
+--  Public kullanıcı tablolara DOĞRUDAN erişemez; erişim yalnızca
+--  security definer RPC'ler üzerinden (thread_id = taşıyıcı anahtar).
+--  Admin tüm konuşmaları RLS (is_admin) ile görür/yanıtlar.
+-- ================================================================
+create table if not exists support_threads (
+  id          uuid primary key default gen_random_uuid(),
+  user_name   text not null,
+  phone       text,
+  email       text,
+  subject     text,
+  status      text not null default 'open' check (status in ('open','in_progress','closed')),
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+create table if not exists support_messages (
+  id          uuid primary key default gen_random_uuid(),
+  thread_id   uuid not null references support_threads(id) on delete cascade,
+  sender_type text not null check (sender_type in ('user','admin')),
+  message     text not null,
+  created_at  timestamptz default now(),
+  read_at     timestamptz
+);
+create index if not exists idx_support_msg_thread on public.support_messages(thread_id, created_at);
+
+alter table public.support_threads  enable row level security;
+alter table public.support_messages enable row level security;
+
+-- Yalnızca admin doğrudan erişebilir (public erişim RPC üzerinden)
+drop policy if exists sup_thr_admin on public.support_threads;
+create policy sup_thr_admin on public.support_threads for all
+  using (public.is_admin()) with check (public.is_admin());
+drop policy if exists sup_msg_admin on public.support_messages;
+create policy sup_msg_admin on public.support_messages for all
+  using (public.is_admin()) with check (public.is_admin());
+
+-- Public RPC: yeni destek konuşması başlat (ilk mesajla birlikte)
+create or replace function public.support_start(
+  p_name text, p_phone text, p_email text, p_subject text, p_message text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare tid uuid;
+begin
+  if coalesce(btrim(p_name),'') = '' or coalesce(btrim(p_message),'') = '' then
+    raise exception 'INVALID_INPUT';
+  end if;
+  insert into public.support_threads(user_name, phone, email, subject, status)
+    values (btrim(p_name), nullif(btrim(coalesce(p_phone,'')),''), nullif(btrim(coalesce(p_email,'')),''),
+            nullif(btrim(coalesce(p_subject,'')),''), 'open')
+    returning id into tid;
+  insert into public.support_messages(thread_id, sender_type, message)
+    values (tid, 'user', btrim(p_message));
+  return tid;
+end; $$;
+
+-- Public RPC: mevcut konuşmaya kullanıcı mesajı ekle
+create or replace function public.support_user_send(p_thread uuid, p_message text)
+returns void language plpgsql security definer set search_path = public as $$
+declare st text;
+begin
+  if coalesce(btrim(p_message),'') = '' then raise exception 'INVALID_INPUT'; end if;
+  select status into st from public.support_threads where id = p_thread;
+  if st is null then raise exception 'THREAD_NOT_FOUND'; end if;
+  if st = 'closed' then raise exception 'THREAD_CLOSED'; end if;
+  insert into public.support_messages(thread_id, sender_type, message)
+    values (p_thread, 'user', btrim(p_message));
+  update public.support_threads set updated_at = now() where id = p_thread;
+end; $$;
+
+-- Public RPC: konuşmayı + mesajları getir (thread_id sahibine)
+create or replace function public.support_thread(p_thread uuid)
+returns json language sql security definer set search_path = public stable as $$
+  select json_build_object(
+    'thread',  (select to_json(t) from public.support_threads t where t.id = p_thread),
+    'messages', coalesce(
+      (select json_agg(m order by m.created_at)
+         from (select id, thread_id, sender_type, message, created_at, read_at
+                 from public.support_messages where thread_id = p_thread) m), '[]'::json)
+  );
+$$;
+
+grant execute on function public.support_start(text,text,text,text,text) to anon, authenticated;
+grant execute on function public.support_user_send(uuid,text)            to anon, authenticated;
+grant execute on function public.support_thread(uuid)                    to anon, authenticated;
+
+-- Realtime: admin paneli yeni destek mesajlarını canlı görsün (RLS=is_admin uygulanır)
+alter table public.support_threads  replica identity full;
+alter table public.support_messages replica identity full;
+do $$
+begin
+  begin alter publication supabase_realtime add table public.support_threads;  exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.support_messages; exception when duplicate_object then null; end;
+end $$;
+
 -- ----------------------------------------------------------------
 -- SEED DATA (3 demo işletme — sahipsiz, onaylı, admin tarafından yönetilir)
 -- ----------------------------------------------------------------
